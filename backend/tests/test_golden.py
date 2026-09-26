@@ -127,8 +127,18 @@ def run_summary(case_dir, derive, contract):
     assert compare(actual, read_json(case_dir / "expected.json"), contract.tolerances) == []
 
 
+def run_quest(case_dir, run_trace, contract):
+    """final traces are compared step by step; pending traces have no output to compare yet."""
+    trace = read_json(case_dir / "trace.json")
+    expected = trace["expected"]
+    if expected["status"] == "pending":
+        pytest.skip(f"trace {case_dir.name} is pending: its output is not frozen yet")
+    actual = run_trace(trace, contract=contract)
+    assert compare(actual, {"steps": expected["steps"], "final": expected["final"]}, contract.tolerances) == []
+
+
 # Categories whose golden runner is written together with their entry point.
-RUNNERS = {"rules": run_rules, "geometry": run_geometry, "summary": run_summary}
+RUNNERS = {"rules": run_rules, "geometry": run_geometry, "summary": run_summary, "quest": run_quest}
 
 
 def case_params():
