@@ -19,7 +19,7 @@ Contratto MVP approvato e file condivisi pronti in `shared/`. Prossimo passo: im
 ## Da definire
 
 - Output per passo delle tracce QUEST+ `acuity-reaches-sd`, `acuity-max-trials`, `contrast-reaches-sd` (`pending`): si generano con l'implementazione di riferimento dopo `tiny-hand-computed`.
-- Bianco caldo del tema chiaro (Rocco); verifica di `nativeScale` con lo Zoom schermo (Rocco).
+- Bianco caldo del tema chiaro (Rocco); verifica di `nativeScale` con lo Zoom schermo attivo (Rocco: senza Zoom l'iPhone 15 stampa 3,0; con lo Zoom da provare sul telefono).
 - Protocolli e modelli dei test post-MVP (lettura, campo visivo, Amsler, luce, affidabilita avanzata).
 - Nessuna funzionalita e stata implementata. Non esistono ancora test eseguibili.
 

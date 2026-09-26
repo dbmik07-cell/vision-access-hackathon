@@ -18,6 +18,7 @@ struct SettingsView: View {
                     }
                     Button("Ecco come vedi", systemImage: "eye") { dismiss(); app.route = .results }
                     Toggle("Voce", isOn: $voiceOn).onChange(of: voiceOn) { _, v in Voice.shared.enabled = v }
+                    Toggle("Mostra distanza", isOn: $app.showDistance)
                 }
 
                 Section("Profilo di campo visivo (demo)") {
@@ -52,7 +53,7 @@ struct SettingsView: View {
                 Section {
                     Text("IpoView 1.0 · \(DeviceDisplay.modelName) · \(DeviceDisplay.ppi.map { "\(Int($0))" } ?? "modello non in tabella") ppi")
                         .font(.ipo(.footnote))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(app.appearance.secondary)
                         .onTapGesture {
                             versionTaps += 1
                             if versionTaps >= 5 { showDemo = true; Haptics.success() }
@@ -62,6 +63,9 @@ struct SettingsView: View {
                 }
             }
             .font(.ipo(.body))
+            // Testo dei pulsanti nel colore del testo (≥ 7:1); l'accento solo sugli interruttori.
+            .tint(app.appearance.foreground)
+            .toggleStyle(SwitchToggleStyle(tint: .ipoAccent))
             .navigationTitle("Impostazioni")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

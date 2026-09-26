@@ -27,6 +27,8 @@
     pending: new Set(),
     reader: false,
     listeners: [],        // [target, evento, fn, opzioni]
+    rows: [],             // barre e gruppi di schede del sito (fixRows)
+    wrappedBefore: new Set(),
   };
 
   const STYLE_ID = 'ipoview-style';
@@ -57,6 +59,12 @@
   // Elementi di testo a cui applicare dimensione e font
   const TEXT_TAGS_BASE = 'p,li,td,th,dd,dt,span,a,label,input,select,textarea,button,blockquote,figcaption,h1,h2,h3,h4,h5,h6';
   const TEXT_TAGS = 'p,li,td,th,dd,dt,span,a,label,input,select,textarea,button,blockquote,figcaption,div.ipo-t,h1,h2,h3,h4,h5,h6';
+  // Barre, menu, schede, moduli e controlli del sito: qui solo font, dimensione minima e contrasto,
+  // mai spaziature, bordi, display o larghezze (niente voci che vanno a capo o vengono tagliate)
+  const NAVISH = 'nav,header,footer,form,button,select,label,[role="navigation"],[role="banner"],[role="menubar"],[role="menu"],[role="menuitem"],[role="tablist"],[role="tab"],[role="toolbar"],[role="search"],[role="button"],[role="listbox"],[role="combobox"],[role="dialog"]';
+  // Testo di lettura (R2: spaziature, allineamento, lunghezza della riga, link sottolineati)
+  const READ_TAGS = 'p,li,td,dd,blockquote,figcaption,article div.ipo-t,main div.ipo-t,[role="main"] div.ipo-t,#ipoview-reader div.ipo-t';
+  const READ = `:is(${READ_TAGS}):not(:is(${NAVISH}) *)`;
   // Non toccare il font delle icone (icon font)
   const NOT_ICON = ':not([class*="icon" i]):not([class^="fa"]):not([class*=" fa-"]):not([class*="material" i]):not([aria-hidden="true"])';
   const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'HEAD', 'META', 'LINK', 'svg', 'SVG', 'PATH', 'BR', 'IFRAME']);
@@ -244,7 +252,8 @@
     // R2: lunghezza della riga in caratteri (ch del font Atkinson), mai oltre lo schermo
     const N = Math.max(10, num(l.maxLineWidthCh, 60));
     const W = `min(${N}ch, 100%)`;
-    const WRAP = 'overflow-wrap:break-word!important;word-break:normal!important;hyphens:auto!important;-webkit-hyphens:auto!important;';
+    const WRAP = 'overflow-wrap:break-word!important;word-break:normal!important;';
+    const HYPHENS = 'hyphens:auto!important;-webkit-hyphens:auto!important;';
     const target = num(k.minTargetPt, 44), outline = num(k.focusOutlinePx, 3);
     const BG = cssColor(tc.bg), FG = cssColor(tc.fg);
     const out = [];
@@ -266,11 +275,14 @@
     out.push(`h1{font-size:${MIN(1.6)}!important;}h2{font-size:${MIN(1.4)}!important;}h3{font-size:${MIN(1.2)}!important;}h4,h5,h6{font-size:${MIN(1.1)}!important;}`);
     out.push(`:is(h1,h2,h3,h4,h5,h6) :is(span,a,label,div,small,strong,em,b,i){font-size:inherit!important;}`);
     out.push(`:is(body,${TEXT_TAGS})${NOT_ICON}{font-family:${fam}!important;}`);
-    out.push(`:is(body,${TEXT_TAGS}){line-height:${lh}!important;letter-spacing:${ls}em!important;word-spacing:${ws}em!important;}`);
-    out.push(`:is(body,p,li,dd,dt,td,th,blockquote,figcaption,div.ipo-t,h1,h2,h3,h4,h5,h6){text-align:${align}!important;}`);
-    out.push(`p,blockquote{margin-bottom:${ps}em!important;}`);
-    // Parole lunghe spezzate (mai break-all): il testo non esce mai di lato
-    out.push(`:is(body,${TEXT_TAGS}){${WRAP}}`);
+    // R2 solo sul testo di lettura: mai su titoli, navigazione, pulsanti, campi, schede, menu, loghi
+    out.push(`${READ}{line-height:${lh}!important;letter-spacing:${ls}em!important;word-spacing:${ws}em!important;text-align:${align}!important;${WRAP}}`);
+    // Sillabazione solo nei paragrafi: mai in titoli, celle, pulsanti, campi o menu
+    out.push(`:is(p,li,dd,blockquote):not(:is(${NAVISH}) *){${HYPHENS}}`);
+    out.push(`:is(${NAVISH},h1,h2,h3,h4,h5,h6,td,th){hyphens:manual!important;-webkit-hyphens:manual!important;}`);
+    out.push(`:is(p,blockquote):not(:is(${NAVISH}) *){margin-bottom:${ps}em!important;}`);
+    // Parole lunghe spezzate (mai break-all) anche fuori dal testo di lettura, ma senza sillabazione
+    out.push(`:is(body,${TEXT_TAGS}){overflow-wrap:break-word!important;}`);
 
     // Layout a una colonna
     if (S.reader) {
@@ -281,20 +293,20 @@
       out.push(`#ipoview-reader table{display:block!important;overflow-x:auto!important;max-width:100%!important;}`);
     } else if (l.singleColumn !== false) {
       // Una colonna (sempre quando il piano è attivo)
+      // Una colonna solo per i blocchi di contenuto (ipo-flexcol/ipo-grid li sceglie scanElements):
+      // barre di navigazione e gruppi di schede tengono display, flex e larghezze del sito
       out.push(`html,body{overflow-x:hidden!important;}`);
-      out.push(`body{display:block!important;max-width:min(calc(${N}ch + 24px), 100%)!important;margin:0 auto!important;padding:12px!important;box-sizing:border-box!important;${WRAP}}`);
-      out.push(`body *{float:none!important;max-width:100%!important;box-sizing:border-box!important;}`);
-      out.push(`body :is(p,li,dd,dt,blockquote,figcaption,h1,h2,h3,h4,h5,h6,div.ipo-t){max-width:${W}!important;}`);
-      out.push(`body *:not(img):not(svg):not(svg *):not(video):not(canvas):not(iframe):not(input):not(select):not(button):not(picture){width:auto!important;min-width:0!important;}`);
-      out.push(`.ipo-flexcol{flex-direction:column!important;flex-wrap:wrap!important;}.ipo-grid{display:block!important;}`);
+      out.push(`body *:not(:is(${NAVISH})):not(:is(${NAVISH}) *){max-width:100%!important;}`);
+      // Solo immagini e blocchi grandi escono dal float: le icone flottanti del sito restano al loro posto
+      out.push(`:is(img,picture,figure,video,iframe,table,aside):not(:is(${NAVISH}) *){float:none!important;}`);
+      out.push(`${READ},:is(h1,h2,h3,h4,h5,h6):not(:is(${NAVISH}) *){max-width:${W}!important;}`);
+      out.push(`.ipo-flexcol{flex-direction:column!important;flex-wrap:nowrap!important;}.ipo-grid{display:block!important;}`);
+      out.push(`:is(.ipo-flexcol,.ipo-grid)>*{width:auto!important;min-width:0!important;max-width:100%!important;flex-basis:auto!important;}`);
       out.push(`img,video,picture,canvas,iframe{max-width:100%!important;height:auto!important;}`);
       out.push(`table{display:block!important;overflow-x:auto!important;}`);
       out.push(`aside,footer,[role="complementary"],[role="contentinfo"]{display:none!important;}`);
     }
     if (!S.reader && ruleMode) out.push(`${AD_SEL}{display:none!important;}`);
-
-    // Spazio in fondo: la toolbar nativa iOS copre circa 90px della webview
-    out.push(`body{padding-bottom:calc(100px + env(safe-area-inset-bottom))!important;}`);
 
     // Sblocca lo scroll bloccato dai popup
     if (l.moveEdgeElements || cl.removeCookieBanners) out.push(`html,body{overflow-y:auto!important;height:auto!important;}`);
@@ -313,27 +325,33 @@
     if (cl.stopAnimations) out.push(`*,*::before,*::after{animation:none!important;transition-property:font-size!important;scroll-behavior:auto!important;}`);
 
     // R7: link e controlli
-    if (k.underlineLinks) out.push(`a{text-decoration:underline!important;text-underline-offset:.15em!important;}`);
-    out.push(`button,select,input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),[role="button"],nav a{min-height:${target}px!important;min-width:${target}px!important;padding:.3em .6em!important;box-sizing:border-box!important;}`);
-    out.push(`nav a{display:inline-block!important;}`);
-    out.push(`p a,li a{padding-block:.15em!important;}`);
+    // Sottolineatura sottile, sempre nel testo di lettura; titoli-link e navigazione restano come nel sito
+    if (k.underlineLinks) out.push(`${READ} a{text-decoration-line:underline!important;text-decoration-thickness:1.5px!important;text-underline-offset:.15em!important;text-decoration-skip-ink:auto!important;}`);
+    out.push(`${READ} a{padding-block:.15em!important;}`);
     out.push(`input[type="checkbox"],input[type="radio"]{width:${Math.round(target * 0.6)}px!important;height:${Math.round(target * 0.6)}px!important;}`);
-    out.push(`:focus,:focus-visible{outline:${outline}px solid ${tc.focus}!important;outline-offset:2px!important;}`);
+    // Contorno spesso solo sull'elemento con il focus attivo: nessun bordo aggiunto a campi e pulsanti
+    out.push(`:focus-visible{outline:${outline}px solid ${tc.focus}!important;outline-offset:2px!important;}`);
 
     // Nostri controlli (Menù, paragrafo)
     const btnFont = 'clamp(20px, calc(var(--ipo-font) * 0.8), 40px)';  // solo per il pulsante Menù
+    out.push(`html.ipo-has-menu>body{position:relative!important;}`);
     out.push(`#ipoview-menu-btn{display:block!important;width:100%!important;max-width:none!important;min-height:${Math.max(64, target)}px!important;margin:0 0 12px!important;padding:8px 16px!important;font:700 ${btnFont} ${fam}!important;background:${FG}!important;color:${BG}!important;border:3px solid ${FG}!important;border-radius:12px!important;position:static!important;text-decoration:none!important;}`);
-    out.push(`#ipoview-paragraph{position:fixed!important;inset:0!important;z-index:2147483647!important;display:flex!important;flex-direction:column!important;background:${BG}!important;color:${FG}!important;margin:0!important;padding:0!important;max-width:none!important;width:auto!important;font-family:${fam}!important;}`);
+    // Più alto del viewport di 200px per lato (con padding uguale): WebKit (iOS 26) non lo tratta come
+    // velo modale da estendere in grigio sotto le barre dell'app, e lì si vede il fondo della pagina
+    out.push(`#ipoview-paragraph{position:fixed!important;inset:-200px 0!important;padding-block:200px!important;box-sizing:border-box!important;z-index:2147483647!important;display:flex!important;flex-direction:column!important;background:${BG}!important;color:${FG}!important;margin:0!important;padding-inline:0!important;max-width:none!important;width:auto!important;font-family:${fam}!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-text{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;padding:24px 16px!important;margin:0!important;color:${FG}!important;background:${BG}!important;font-size:var(--ipo-font)!important;line-height:${lh}!important;letter-spacing:${ls}em!important;word-spacing:${ws}em!important;text-align:left!important;-webkit-overflow-scrolling:touch;overflow-wrap:break-word!important;word-break:normal!important;hyphens:auto!important;-webkit-hyphens:auto!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-text.ipo-h{font-weight:700!important;font-size:calc(var(--ipo-font) * 1.3)!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-text.ipo-speaking{box-shadow:inset 0 0 0 ${outline + 2}px ${tc.focus}!important;}`);
-    // Barra in basso a dimensione fissa: non segue --ipo-font (a 85px andrebbe a capo)
-    out.push(`#ipoview-paragraph .ipo-p-bottom{flex:0 0 auto!important;background:${BG}!important;padding:8px 8px calc(env(safe-area-inset-bottom) + 90px)!important;border-top:2px solid ${FG}!important;}`);
+    // Barra in basso a dimensione fissa: non segue --ipo-font (a 85px andrebbe a capo).
+    // Lo spazio per la barra dell'app lo lasciano i margini nativi della webview (obscuredContentInsets)
+    out.push(`#ipoview-paragraph .ipo-p-bottom{flex:0 0 auto!important;background:${BG}!important;padding:8px 8px 12px!important;border-top:2px solid ${FG}!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-count{text-align:center!important;padding:4px 0 8px!important;color:${FG}!important;background:${BG}!important;font-size:24px!important;font-weight:700!important;line-height:1.2!important;letter-spacing:normal!important;word-spacing:normal!important;white-space:nowrap!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-bar{display:flex!important;gap:8px!important;background:${BG}!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-btn{flex:1 1 50%!important;min-height:72px!important;min-width:0!important;width:auto!important;padding:8px!important;margin:0!important;font-family:${fam}!important;font-size:24px!important;font-weight:700!important;line-height:1.2!important;letter-spacing:normal!important;word-spacing:normal!important;white-space:nowrap!important;background:${FG}!important;color:${BG}!important;border:none!important;border-radius:12px!important;text-decoration:none!important;overflow:hidden!important;text-overflow:clip!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-btn:disabled{opacity:.35!important;}`);
-    out.push(`html.ipo-lock,html.ipo-lock body{overflow:hidden!important;}`);
+    out.push(`html.ipo-lock,html.ipo-lock body{overflow:hidden!important;background:${BG}!important;}`);
+    // Sotto il pannello (e sotto le barre dell'app) non si vede la pagina
+    out.push(`html.ipo-lock>body>:not(#ipoview-paragraph),html.ipo-lock>#ipoview-menu-btn{visibility:hidden!important;}`);
     return out.join('\n');
   }
 
@@ -369,6 +387,11 @@
     for (const ch of Array.from(document.body.children)) if (!isOurs(ch)) hide(ch);
     document.body.insertBefore(box, document.body.firstChild);
     track(box);
+    // Il body del sito può restare fisso o spostato (blocco dello scroll, spazio per l'header nascosto):
+    // in linea, così vince anche sulle regole !important del sito
+    for (const [prop, value] of [['position', 'static'], ['top', 'auto'], ['margin', '0'], ['padding', '0'], ['height', 'auto'], ['overflow-y', 'auto']]) {
+      setStyle(document.body, prop, value);
+    }
     return true;
   }
 
@@ -407,6 +430,12 @@
   // ---------------------------------------------------------------------------
   // Scansione: barre fisse, flex/grid, sfondi del tema, div con testo
   // ---------------------------------------------------------------------------
+  // Contenitore flex/grid di contenuto (colonne con paragrafi), non una barra o un gruppo di schede
+  function isContentLayout(el, cs) {
+    if (!cs.display.includes('flex') && !cs.display.includes('grid')) return false;
+    if (el.matches(NAVISH) || el.closest(NAVISH)) return false;
+    return !!el.querySelector(':scope > * p, :scope > p, :scope > article') && (el.textContent || '').length > 200;
+  }
   function scanElements(root, plan) {
     if (!root) return;
     const l = plan.layout || {}, cl = plan.cleanup || {};
@@ -421,7 +450,7 @@
       let cs; try { cs = getComputedStyle(el); } catch (e) { continue; }
       if (cs.display === 'none') continue;
       if (edges && (cs.position === 'fixed' || cs.position === 'sticky')) handleEdge(el, cs);
-      if (single) {
+      if (single && isContentLayout(el, cs)) {
         if (cs.display.includes('flex') && !cs.flexDirection.startsWith('column')) addClass(el, 'ipo-flexcol');
         else if (cs.display.includes('grid')) addClass(el, 'ipo-grid');
       }
@@ -455,12 +484,59 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Barre e gruppi di schede: se con il testo più grande andrebbero a capo, restano su una
+  // riga e scorrono di lato. Le righe che il sito manda già a capo si toccano solo se sono
+  // poche schede nell'intestazione (es. "Tutti | Immagini" di Google su schermi stretti).
+  // ---------------------------------------------------------------------------
+  function rowCandidates(root) {
+    const out = [];
+    const list = root.querySelectorAll(`:is(${NAVISH}), :is(${NAVISH}) *`);
+    for (let i = 0; i < list.length && out.length < 400; i++) {
+      const el = list[i];
+      if (isOurs(el) || el.childElementCount < 2 || SKIP_TAGS.has(el.tagName)) continue;
+      const d = getComputedStyle(el).display;
+      if (d === 'none' || d.includes('grid') || d.startsWith('table')) continue;
+      out.push(el);
+    }
+    return out;
+  }
+  function isRow(el) {
+    const cs = getComputedStyle(el);
+    if (cs.display.includes('flex')) return !cs.flexDirection.startsWith('column');
+    const kids = Array.from(el.children).filter(visible);
+    return kids.length >= 2 && kids.every((k) => getComputedStyle(k).display.startsWith('inline'));
+  }
+  function isWrapped(el) {
+    const kids = Array.from(el.children).filter((k) => visible(k) && getComputedStyle(k).position !== 'absolute');
+    if (kids.length < 2) return false;
+    const first = kids[0].getBoundingClientRect();
+    return kids.some((k) => k.getBoundingClientRect().top >= first.bottom - 1);
+  }
+  function recordRows(root) {
+    S.rows = rowCandidates(root).filter(isRow);
+    S.wrappedBefore = new Set(S.rows.filter(isWrapped));
+  }
+  function fixRows() {
+    for (const el of S.rows) {
+      if (!el.isConnected || el.classList.contains('ipo-row') || !visible(el) || !isWrapped(el)) continue;
+      if (S.wrappedBefore.has(el) && !(el.childElementCount <= 6 && el.closest('header,[role="banner"],[role="tablist"]'))) continue;
+      const flex = getComputedStyle(el).display.includes('flex');
+      setStyle(el, flex ? 'flex-wrap' : 'white-space', 'nowrap');
+      setStyle(el, 'overflow-x', 'auto');
+      setStyle(el, 'overflow-y', 'hidden');
+      setStyle(el, 'scrollbar-width', 'none');
+      for (const k of el.children) { setStyle(k, 'flex-shrink', '0'); setStyle(k, 'white-space', 'nowrap'); }
+      addClass(el, 'ipo-row');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // R3: passata di contrasto
   // ---------------------------------------------------------------------------
   function contrastPass(root, plan) {
     if (!root) return;
     const c = plan.color || {};
-    const target = num(c.minTextContrast, 4.5), uiTarget = num(c.minUIContrast, 3);
+    const target = num(c.minTextContrast, 4.5);
     const preserveHue = c.preserveHue !== false;
     const tc = themeColors(plan);
     const cache = new Map();
@@ -489,26 +565,11 @@
     for (const el of collect(root, 20000)) {
       if (count >= 3000) break;
       if (el.nodeType !== 1 || SKIP_TAGS.has(el.tagName) || isUI(el)) continue;
-      const isControl = /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(el.tagName);
-      const text = hasDirectText(el);
-      if (!text && !isControl) continue;
-      if (!visible(el)) continue;
+      // Solo il colore del testo: nessun bordo aggiunto ai controlli del sito
+      if (!hasDirectText(el) || !visible(el)) continue;
       count++;
       const cs = getComputedStyle(el);
       if (cs.visibility === 'hidden') continue;
-
-      // Bordi dei controlli: almeno minUIContrast rispetto allo sfondo esterno
-      if (isControl && !/^(hidden|checkbox|radio|range|color|image)$/.test(el.type || '')) {
-        const outer = effBg(el.parentElement).c;
-        const bw = parseFloat(cs.borderTopWidth) || 0;
-        const bc = blend(parseColor(cs.borderTopColor), outer);
-        if (bw < 1 || cs.borderTopStyle === 'none' || ratio(bc, outer) < uiTarget) {
-          const nc = adjustColor(bw >= 1 ? bc : blend(parseColor(cs.color), outer), outer, uiTarget, preserveHue) ||
-            (lum(outer) > MID_LUM ? BLACK : WHITE);
-          setStyle(el, 'border', `2px solid ${cssColor(nc)}`);
-        }
-      }
-      if (!text) continue;
 
       let info = effBg(el), bg = info.c;
       const fgRaw = parseColor(cs.color);
@@ -568,8 +629,11 @@
       const open = btn.getAttribute('aria-expanded') !== 'true';
       btn.setAttribute('aria-expanded', String(open));
       navs.forEach((n) => n.classList.toggle('ipo-hide', !open));
+      if (open) step('rows', fixRows);
     });
-    document.body.insertBefore(btn, document.body.firstChild);
+    // Prima del body (con body relativo): gli elementi assoluti del sito a top:0 non lo coprono
+    document.documentElement.insertBefore(btn, document.body);
+    addClass(document.documentElement, 'ipo-has-menu');
     track(btn);
   }
 
@@ -714,6 +778,7 @@
         contrastPass(n, plan);
       });
     }
+    step('rows', fixRows);
   }
 
   // ---------------------------------------------------------------------------
@@ -746,6 +811,7 @@
     S.reader = !!step('readability', () => tryReader(plan));
     const ruleMode = !S.reader;
     if (body) step('origSizes', () => recordOrigSizes(body));
+    if (body && ruleMode) step('recordRows', () => recordRows(body));
     step('style', () => injectStyle(buildCSS(plan, ruleMode)));
     if (body) {
       if (cl.stopAnimations) step('stopMedia', () => stopMedia(body));
@@ -757,6 +823,9 @@
       const root = S.reader ? document.getElementById('ipoview-reader') : body;
       step('scan', () => scanElements(root, plan));
       step('contrast', () => contrastPass(root, plan));
+      step('rows', fixRows);
+      // Il font Atkinson arriva un attimo dopo e allarga il testo: si ricontrolla
+      if (document.fonts) listen(document.fonts, 'loadingdone', () => { if (S.applied) step('rows', fixRows); });
       step('paragraph', () => buildParagraphMode(plan));
       step('observer', startObserver);
     }
@@ -769,6 +838,7 @@
     if (!S.applied) { S.pendingFontPx = v; return; }
     // Solo la variabile CSS: nessuna nuova scansione
     step('setFontSizePx', () => setStyle(document.documentElement, '--ipo-font', v + 'px', ''));
+    step('rows', fixRows);
   }
 
   function reset() {
@@ -799,7 +869,7 @@
         S.viewport = null;
       }
     });
-    S.applied = false; S.plan = null; S.reader = false;
+    S.applied = false; S.plan = null; S.reader = false; S.rows = []; S.wrappedBefore = new Set();
   }
 
   window.IpoView = { apply, setFontSizePx, reset };

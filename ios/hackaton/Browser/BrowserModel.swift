@@ -17,9 +17,9 @@ enum OfflinePage: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .trenitalia: "Orari treni (salvata)"
-        case .articolo: "Articolo (salvato)"
-        case .ricerca: "Ricerca (salvata)"
+        case .trenitalia: "Orari dei treni"
+        case .articolo: "Articolo di giornale"
+        case .ricerca: "Risultati di una ricerca"
         }
     }
     var icon: String {
@@ -41,6 +41,8 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     var extensionsEnabled = true { didSet { if oldValue != extensionsEnabled { rebuildPlan() } } }
     var addressText = ""
     var pageTitle = ""
+    /// Indirizzo della pagina mostrata, per il dominio nella barra in alto.
+    var currentURL: URL?
     var canGoBack = false
     var canGoForward = false
     var isLoading = false
@@ -84,12 +86,32 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
         webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
         webView.isInspectable = true
+        // Le barre sono sospese sopra la pagina: i margini li imposta setObscuredInsets.
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
         config.userContentController.add(WeakHandler(self), name: "ipoview")
         observations = [
             webView.observe(\.canGoBack) { [weak self] wv, _ in MainActor.assumeIsolated { self?.canGoBack = wv.canGoBack } },
             webView.observe(\.canGoForward) { [weak self] wv, _ in MainActor.assumeIsolated { self?.canGoForward = wv.canGoForward } },
             webView.observe(\.isLoading) { [weak self] wv, _ in MainActor.assumeIsolated { self?.isLoading = wv.isLoading } },
         ]
+    }
+
+    /// Dominio senza "www." ("google.com"); "Pagina salvata" per i file del bundle.
+    var domain: String {
+        guard let url = currentURL else { return "" }
+        if url.isFileURL { return "Pagina salvata" }
+        let host = url.host() ?? url.absoluteString
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
+
+    /// La pagina scorre sotto le barre ma inizia e finisce fuori da esse.
+    func setObscuredInsets(top: CGFloat, bottom: CGFloat) {
+        let insets = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
+        guard webView.obscuredContentInsets != insets else { return }
+        webView.obscuredContentInsets = insets
+        // obscuredContentInsets non allunga lo scorrimento: in fondo serve lo spazio della barra
+        webView.scrollView.contentInset.bottom = bottom
+        webView.scrollView.verticalScrollIndicatorInsets = insets
     }
 
     // MARK: Profilo e piano
@@ -212,6 +234,7 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
         showStart = false
         loadError = nil
         addressText = url.isFileURL ? "" : url.absoluteString
+        currentURL = url
         if url.isFileURL {
             webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         } else {
@@ -230,6 +253,7 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
 
     nonisolated func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         MainActor.assumeIsolated {
+            self.currentURL = webView.url
             self.addressText = webView.url?.isFileURL == true ? "Pagina salvata" : (webView.url?.absoluteString ?? "")
         }
     }

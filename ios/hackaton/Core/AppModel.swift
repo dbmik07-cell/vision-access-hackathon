@@ -43,6 +43,11 @@ final class AppModel {
         didSet { UserDefaults.standard.set(postMVPExtensions, forKey: "postMVPExtensions") }
     }
 
+    /// Indicatore della distanza nella barra del browser (sempre visibile in modalità demo).
+    var showDistance: Bool {
+        didSet { UserDefaults.standard.set(showDistance, forKey: "showDistance") }
+    }
+
     /// Controlli di affidabilità avanzata dell'ultimo test (fuori dal profilo del contratto).
     var diagnostics: [String] {
         didSet { UserDefaults.standard.set(diagnostics, forKey: "diagnostics") }
@@ -54,6 +59,7 @@ final class AppModel {
         fieldPreset = FieldPreset(rawValue: UserDefaults.standard.string(forKey: "fieldPreset") ?? "") ?? .nessuno
         postMVPExtensions = UserDefaults.standard.object(forKey: "postMVPExtensions") as? Bool ?? true
         diagnostics = UserDefaults.standard.stringArray(forKey: "diagnostics") ?? []
+        showDistance = UserDefaults.standard.bool(forKey: "showDistance")
         route = profile == nil ? .welcome : .browser
         #if DEBUG
         // Argomenti di avvio per le prove nel simulatore.
@@ -65,6 +71,7 @@ final class AppModel {
             fieldPreset = p; route = .browser
         }
         if args.contains("-welcome") { route = .welcome }
+        if args.contains("-showDistance") { showDistance = true }
         #endif
     }
 
@@ -165,7 +172,18 @@ struct AppAppearance: Equatable {
     var background: Color { scheme == .dark ? (highContrast ? .black : Color(white: 0.07)) : (highContrast ? .white : Color(red: 1, green: 0.985, blue: 0.95)) }
     var foreground: Color { scheme == .dark ? Color(red: 0.91, green: 0.9, blue: 0.89) : (highContrast ? .black : Color(white: 0.1)) }
     var secondary: Color { scheme == .dark ? Color(white: 0.75) : Color(white: 0.28) }
-    var accent: Color { scheme == .dark ? Color(red: 1, green: 0.84, blue: 0.04) : Color(red: 0, green: 0.25, blue: 0.75) }
+    /// Accento #FF8A4C, sempre con testo #141414 sopra (7,9:1).
+    var accent: Color { .ipoAccent }
+    var onAccent: Color { .ipoOnAccent }
+    /// Fondo delle schede: leggermente staccato dal fondo della pagina iniziale.
+    var card: Color { scheme == .dark ? Color(white: 0.12) : .white }
+    var startBackground: Color { scheme == .dark ? background : Color(white: 0.955) }
+    var hairline: Color { foreground.opacity(scheme == .dark ? 0.22 : 0.16) }
+}
+
+extension Color {
+    static let ipoAccent = Color(red: 1, green: 0x8A / 255, blue: 0x4C / 255)
+    static let ipoOnAccent = Color(red: 0x14 / 255, green: 0x14 / 255, blue: 0x14 / 255)
 }
 
 extension Font {
