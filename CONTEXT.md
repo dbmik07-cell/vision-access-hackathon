@@ -21,7 +21,7 @@ Contratto MVP approvato e file condivisi pronti in `shared/`. Prossimo passo: im
 - Output per passo delle tracce QUEST+ `acuity-reaches-sd`, `acuity-max-trials`, `contrast-reaches-sd` (`pending`): si generano con l'implementazione di riferimento dopo `tiny-hand-computed`.
 - Bianco caldo del tema chiaro (Rocco); verifica di `nativeScale` con lo Zoom schermo (Rocco).
 - Protocolli e modelli dei test post-MVP (lettura, campo visivo, Amsler, luce, affidabilita avanzata).
-- Backend: workspace Python, caricatore del contratto, validazione degli schemi e harness dei casi golden pronti (`cd backend; python -m pytest`, #6). I casi golden senza implementazione risultano `skipped` con il motivo; geometria implementata (goldens `geometry/` verdi, #7); regole e QUEST+ non sono ancora implementati.
+- Backend: workspace Python, caricatore del contratto, validazione degli schemi e harness dei casi golden pronti (`cd backend; python -m pytest`, #6). I casi golden senza implementazione risultano `skipped` con il motivo; geometria (#7) e derivazioni del profilo (#8) implementate, goldens `geometry/` e `summary/` verdi; regole e QUEST+ non sono ancora implementati.
 
 ## Linguaggio
 

@@ -5,12 +5,11 @@ entry point is not implemented yet is reported as skipped, never as passed.
 """
 
 import importlib
-import json
 
 import pytest
 
 from contract import compare
-from tests.golden_cases import discover_cases
+from tests.golden_cases import discover_cases, read_json
 
 CATEGORIES = ("rules", "summary", "geometry", "quest")
 
@@ -22,10 +21,6 @@ ENTRY_POINTS = {
     "geometry": ("geometry", None),
     "quest": ("quest", "run_trace"),
 }
-
-
-def read_json(path):
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def entry_point(category):
@@ -111,8 +106,24 @@ def run_geometry(case_dir, geometry, contract):
     assert compare(actual, read_json(case_dir / "expected.json"), contract.tolerances) == []
 
 
+def run_summary(case_dir, derive, contract):
+    """summary/ inputs are either label medians or a profile without its summary block."""
+    adaptation = importlib.import_module("adaptation")  # labels come from the same module
+    given = read_json(case_dir / "input.json")
+    if given.keys() == {"acuityMedianLogMAR", "contrastMedianLogCS"}:
+        actual = {
+            "whoCategory": [adaptation.who_category(contract, m) for m in given["acuityMedianLogMAR"]],
+            "band": [adaptation.contrast_band(contract, m) for m in given["contrastMedianLogCS"]],
+        }
+    else:
+        summary = derive(contract, given)
+        contract.validate_profile({**given, "summary": summary})
+        actual = {"summary": summary}
+    assert compare(actual, read_json(case_dir / "expected.json"), contract.tolerances) == []
+
+
 # Categories whose golden runner is written together with their entry point.
-RUNNERS = {"rules": run_rules, "geometry": run_geometry}
+RUNNERS = {"rules": run_rules, "geometry": run_geometry, "summary": run_summary}
 
 
 def case_params():
