@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 from adaptation import who_category
 from contract import Contract
-from quest import Result
+from quest.engine import Result
 
 
 def measured_block(contract: Contract, result: Result, trial_display_limits: Sequence[float]) -> dict:

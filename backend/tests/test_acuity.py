@@ -49,7 +49,7 @@ def test_who_category_comes_from_the_median_not_the_interval(contract):
 
 def test_display_limit_is_the_minimum_over_trials(contract):
     block = measured_block(contract, result(), [0.1, -0.04, 0.02])
-    assert block["displayLimitLogMAR"] == -0.04
+    assert compare(block["displayLimitLogMAR"], -0.04, contract.tolerances) == []
 
 
 def test_median_below_the_display_limit_is_censored(contract):

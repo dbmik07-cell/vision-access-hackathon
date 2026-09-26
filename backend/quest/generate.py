@@ -19,7 +19,7 @@ from quest.engine import Result
 from quest.trace import ENGINE_STOP, run_trace
 
 DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "output"
-TINY = "tiny-hand-computed"
+TINY_TRACE = "tiny-hand-computed"
 
 # quest/acuity-reaches-sd/README.md: the final median must fall in this range.
 REACHES_SD_MEDIAN_RANGE = (0.46, 0.56)
@@ -120,7 +120,7 @@ def _check_tiny(contract: Contract, tiny: dict) -> None:
         contract.tolerances,
     )
     if expected["status"] != "final" or mismatches:
-        raise GenerateRefused(f"{TINY} does not pass: " + ("; ".join(mismatches) or "not final"))
+        raise GenerateRefused(f"{TINY_TRACE} does not pass: " + ("; ".join(mismatches) or "not final"))
 
 
 def _acuity_block(contract: Contract, trace: dict, final: dict) -> dict:
@@ -186,7 +186,7 @@ def main() -> int:
         trace = _read_json(examples_dir / name / "trace.json")
         if trace["expected"]["status"] == "pending":
             traces[name] = trace
-    candidates = generate(contract, traces, _read_json(examples_dir / TINY / "trace.json"))
+    candidates = generate(contract, traces, _read_json(examples_dir / TINY_TRACE / "trace.json"))
     for candidate, path in zip(candidates, write_candidates(candidates)):
         print(f"{candidate.trace}: {'PASS' if candidate.passed else 'FAIL'} -> {path}")
         for check in candidate.checks:
