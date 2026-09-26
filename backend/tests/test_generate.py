@@ -113,12 +113,14 @@ def test_checks_catch_reliability_not_decided_by_width(contract):
     "tamper",
     [
         pytest.param({"logCS": 0.48}, id="inverted-sign"),
-        pytest.param({"ci95": [-1.6963, -1.3778]}, id="engine-space-ci95"),
+        pytest.param("engine-space-ci95", id="engine-space-ci95"),
         pytest.param({"censoredAtCeiling": True}, id="censored"),
     ],
 )
 def test_contrast_checks_catch_a_wrong_published_block(contract, tamper):
     result = candidate(contract, "contrast-reaches-sd")
+    if tamper == "engine-space-ci95":
+        tamper = {"ci95": result.output["final"]["ci95"]}
     assert failed_checks(contract, "contrast-reaches-sd", result.output, {**result.profile_block, **tamper})
 
 

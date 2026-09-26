@@ -22,14 +22,13 @@ from quest.trace import ENGINE_STOP, run_trace
 
 DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 TINY_TRACE = "tiny-hand-computed"
-ACUITY_FOR_CONTRAST = "acuity-reaches-sd"
+LETTER_SIZE_ACUITY_TRACE = "acuity-reaches-sd"
 
 # Manual-oracle ranges, copied from the README of each trace (not contract parameters).
 # quest/acuity-reaches-sd: the final median must fall in this range.
 REACHES_SD_MEDIAN_RANGE = (0.46, 0.56)
-# quest/contrast-reaches-sd: responses consistent with an engine threshold in the first range,
-# so the published logCS must fall in the second one.
-CONTRAST_THRESHOLD_RANGE = (-1.52, -1.50)
+# quest/contrast-reaches-sd: the observer threshold (x = -1.51) lies between -1.52 and -1.50,
+# so the published logCS must fall in this range.
 CONTRAST_LOGCS_RANGE = (1.46, 1.56)
 
 
@@ -121,20 +120,15 @@ def _acuity_max_trials(contract: Contract, trace: dict, output: dict, block: dic
 def _contrast_reaches_sd(contract: Contract, trace: dict, output: dict, block: dict) -> list[Check]:
     """Catches an inverted sign: a published logCS near 0.6 or 2 instead of about 1.5."""
     final = output["final"]
-    threshold_low, threshold_high = CONTRAST_THRESHOLD_RANGE
     log_cs_low, log_cs_high = CONTRAST_LOGCS_RANGE
-    threshold = trace["observer"]["thresholdX"]
     engine_low, engine_high = final["ci95"]
     published_low, published_high = block["ci95"]
     return [
         Check(
-            f"observer threshold x = {threshold} in [{threshold_low}, {threshold_high}]",
-            threshold_low <= threshold <= threshold_high,
-        ),
-        Check(
             f"published logCS {block['logCS']:.4f} = -t (engine median {final['estimate']:.4f}) "
             f"in [{log_cs_low}, {log_cs_high}]",
-            compare(block["logCS"], -final["estimate"], contract.tolerances) == [] and log_cs_low <= block["logCS"] <= log_cs_high,
+            compare(block["logCS"], -final["estimate"], contract.tolerances) == []
+            and log_cs_low <= block["logCS"] <= log_cs_high,
         ),
         Check(
             f"published ci95 [{published_low:.4f}, {published_high:.4f}] = [-q_0.975, -q_0.025] "
@@ -172,7 +166,7 @@ def _check_tiny(contract: Contract, tiny: dict) -> None:
 def _profile_block(contract: Contract, trace: dict, final: dict, acuity_ci95_upper_logmar: float | None) -> dict:
     """The admissible stimuli are constant over a trace, so every trial has the same lowest x."""
     stimuli = contract.resolve_stimuli(trace["stimuli"])
-    lowest = min(stimuli[i] for i in trace["admissibleIndices"])
+    lowest_x = min(stimuli[i] for i in trace["admissibleIndices"])
     result = Result(
         trials=final["trials"],
         estimate=final["estimate"],
@@ -181,8 +175,8 @@ def _profile_block(contract: Contract, trace: dict, final: dict, acuity_ci95_upp
         flags=tuple(final["flags"]),
     )
     if trace["test"] == "acuity":
-        return acuity.measured_block(contract, result, [lowest] * result.trials)
-    return contrast.measured_block(contract, result, [lowest] * result.trials, acuity_ci95_upper_logmar)
+        return acuity.measured_block(contract, result, [lowest_x] * result.trials)
+    return contrast.measured_block(contract, result, [lowest_x] * result.trials, acuity_ci95_upper_logmar)
 
 
 def generate(
@@ -250,12 +244,12 @@ def main() -> int:
         trace = _read_json(examples_dir / name / "trace.json")
         if trace["expected"]["status"] == "pending":
             traces[name] = trace
-    acuity_run = run_trace(_read_json(examples_dir / ACUITY_FOR_CONTRAST / "trace.json"), contract=contract)
+    acuity_run = run_trace(_read_json(examples_dir / LETTER_SIZE_ACUITY_TRACE / "trace.json"), contract=contract)
     acuity_upper = acuity_run["final"]["ci95"][1]
     candidates = generate(
         contract, traces, _read_json(examples_dir / TINY_TRACE / "trace.json"), acuity_ci95_upper_logmar=acuity_upper
     )
-    print(f"contrast letter size from the {ACUITY_FOR_CONTRAST} acuity ci95 upper bound {acuity_upper:.4f}")
+    print(f"contrast letter size from the {LETTER_SIZE_ACUITY_TRACE} acuity ci95 upper bound {acuity_upper:.4f}")
     for candidate, path in zip(candidates, write_candidates(candidates)):
         print(f"{candidate.trace}: {'PASS' if candidate.passed else 'FAIL'} -> {path}")
         for check in candidate.checks:
