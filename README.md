@@ -8,19 +8,19 @@ Progetto hackathon dedicato all'accessibilita: app nativa iOS che funziona local
 - `backend/`: Michele, solo Python; riferimenti statistici, simulazioni e test.
   - `acuity/`, `contrast/`, `reading/`, `visual_field/`, `light/`, `adaptation/`, `simulation/`, `tests/`.
   - Il crowding rientra nella lettura, senza modulo autonomo.
-- `shared/`: `visual-profile.schema.json`, `adaptation-plan.schema.json` e casi golden in `examples/`.
-- `docs/`: specifiche e decisioni; `data-contracts.md` descrivera il contratto dati condiviso locale.
+- `shared/`: schemi rigidi `visual-profile.schema.json` e `adaptation-plan.schema.json`, parametri concordati in `parameters.json`, tabella dei dispositivi `devices.json` e casi golden in `examples/`.
+- `docs/`: `data-contracts.md` (contratto MVP normativo), `spec/` (specifica originale), `research/` (verifica statistica delle fonti), `adr/` (decisioni architetturali).
 - `tests/`: cartella esistente preservata; i test Python dei modelli andranno in `backend/tests/`.
 - `CLAUDE.md`: regole operative e confini di responsabilita.
-- `CONTEXT.md`: stato operativo condiviso.
+- `CONTEXT.md`: stato operativo condiviso e glossario del dominio.
 
 Non sono previsti server runtime, FastAPI, database, API Anthropic, RAG, database vettoriali o dipendenze di rete.
 
 ## Stato e prossima fase
 
-Sono presenti solo struttura, documentazione e segnaposto. Gli schemi JSON sono permissivi e non validano ancora dati applicativi; non ci sono casi golden, codice applicativo, progetto Xcode o test eseguibili. I file `.gitkeep` mantengono in Git le cartelle vuote.
+Il contratto MVP (distanza, acuita, contrasto, `VisualProfile` -> `AdaptationPlan` -> browser adattato) e definito e approvato in [docs/data-contracts.md](docs/data-contracts.md), con schemi, parametri e casi golden tier 1+2 in `shared/`. Non ci sono ancora codice applicativo, progetto Xcode o test eseguibili. I file `.gitkeep` mantengono in Git le cartelle vuote.
 
-MVP, test, modelli statistici e regole di adattamento saranno definiti con `/grill-with-docs`. Python e Swift useranno la stessa specifica e gli stessi casi golden, con seed deterministici dove necessari e confronti numerici basati su tolleranze concordate, non su uguaglianza esatta dei float.
+Prossima fase: implementazione di riferimento Python in `backend/` e app Swift in `ios/`, in parallelo dagli stessi casi golden. Il confronto usa tracce scriptate (non seed condivisi) e le tolleranze di `shared/parameters.json`, mai l'uguaglianza esatta dei float.
 
 ## Collaborazione
 

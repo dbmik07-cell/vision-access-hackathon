@@ -1,0 +1,14 @@
+{
+  "cases": [
+    {
+      "distanceMm": 400,
+      "ppi": 460,
+      "screenShortSideDevicePx": 1179
+    },
+    {
+      "distanceMm": 350,
+      "ppi": 326,
+      "screenShortSideDevicePx": 828
+    }
+  ]
+}

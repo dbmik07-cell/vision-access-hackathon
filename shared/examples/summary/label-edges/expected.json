@@ -1,0 +1,20 @@
+{
+  "whoCategory": [
+    "none",
+    "mild",
+    "mild",
+    "moderate",
+    "moderate",
+    "severe",
+    "severe",
+    "blindness"
+  ],
+  "band": [
+    "normal",
+    "borderline",
+    "borderline",
+    "reduced",
+    "reduced",
+    "severelyReduced"
+  ]
+}

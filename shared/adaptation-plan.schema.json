@@ -1,5 +1,99 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "adaptation-plan",
-  "$comment": "Placeholder only; accepts any JSON value. Fields and constraints must be agreed during /grill-with-docs before application validation."
+  "$id": "https://github.com/dbmik07-cell/vision-access-hackathon/shared/adaptation-plan.schema.json",
+  "title": "AdaptationPlan",
+  "description": "Ready-to-apply numbers produced by rules R0-R8 from a VisualProfile. Contract: docs/data-contracts.md section 9. The plan is always complete; null means 'do not touch'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "context", "text", "layout", "color", "controls", "cleanup", "speech", "screen"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "context": {
+      "description": "Inputs the plan was computed for; fontSizeCssPx is valid at referenceDistanceMm and scales with d / referenceDistanceMm",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["referenceDistanceMm", "ppi", "nativeScale"],
+      "properties": {
+        "referenceDistanceMm": { "type": "number", "exclusiveMinimum": 0 },
+        "ppi": { "type": "number", "exclusiveMinimum": 0 },
+        "nativeScale": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fontFamily", "fontSizeCssPx", "lineHeight", "letterSpacingEm", "wordSpacingEm", "paragraphSpacingEm", "align"],
+      "properties": {
+        "fontFamily": { "const": "Atkinson Hyperlegible" },
+        "fontSizeCssPx": { "description": "Minimum body text size at the reference distance", "type": "number", "exclusiveMinimum": 0 },
+        "lineHeight": { "type": "number", "exclusiveMinimum": 0 },
+        "letterSpacingEm": { "type": "number", "minimum": 0 },
+        "wordSpacingEm": { "type": "number", "minimum": 0 },
+        "paragraphSpacingEm": { "type": "number", "minimum": 0 },
+        "align": { "const": "left" }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["singleColumn", "maxLineWidthCh", "mode", "moveEdgeElements"],
+      "properties": {
+        "singleColumn": { "type": "boolean" },
+        "maxLineWidthCh": { "type": "number", "minimum": 15, "maximum": 60 },
+        "mode": { "enum": ["normal", "paragraph", "largeReading"] },
+        "moveEdgeElements": { "type": "boolean" }
+      }
+    },
+    "color": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["theme", "background", "text", "minTextContrast", "minUIContrast", "preserveHue", "imageBrightness"],
+      "properties": {
+        "theme": { "enum": ["original", "light", "dark"] },
+        "background": { "oneOf": [{ "type": "string", "pattern": "^#[0-9A-F]{6}$" }, { "type": "null" }] },
+        "text": { "oneOf": [{ "type": "string", "pattern": "^#[0-9A-F]{6}$" }, { "type": "null" }] },
+        "minTextContrast": { "type": "number", "minimum": 1, "maximum": 21 },
+        "minUIContrast": { "type": "number", "minimum": 1, "maximum": 21 },
+        "preserveHue": { "type": "boolean" },
+        "imageBrightness": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["underlineLinks", "minTargetPt", "focusOutlinePx"],
+      "properties": {
+        "underlineLinks": { "type": "boolean" },
+        "minTargetPt": { "type": "number", "minimum": 44, "maximum": 64 },
+        "focusOutlinePx": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["removeCookieBanners", "stopAnimations", "useReadability"],
+      "properties": {
+        "removeCookieBanners": { "type": "boolean" },
+        "stopAnimations": { "type": "boolean" },
+        "useReadability": { "type": "boolean" }
+      }
+    },
+    "speech": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tapToSpeak", "rateWpm"],
+      "properties": {
+        "tapToSpeak": { "type": "boolean" },
+        "rateWpm": { "oneOf": [{ "type": "number", "exclusiveMinimum": 0 }, { "type": "null" }] }
+      }
+    },
+    "screen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["brightness"],
+      "properties": {
+        "brightness": { "oneOf": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "type": "null" }] }
+      }
+    }
+  }
 }

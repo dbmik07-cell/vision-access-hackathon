@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "1.0",
+  "description": "Agreed MVP parameters of the IpoView contract (docs/data-contracts.md). Read by the Python reference implementation and bundled in the iOS app. Do not copy these numbers into code.",
+  "psychometric": {
+    "gamma": { "value": 0.25, "unit": "probability", "source": "4-alternative forced choice (tumbling E)" },
+    "lambda": { "value": 0.02, "unit": "probability", "source": "spec 5.1, lapse rate" }
+  },
+  "quest": {
+    "entropyLogBase": { "value": "e", "unit": "none", "source": "design choice (natural logarithm)" },
+    "tieEpsilon": { "value": 1e-12, "unit": "nats", "source": "design choice (Q8): candidates within this of the minimum are tied; lowest admissible index wins" },
+    "minTrials": { "value": 12, "unit": "trials", "source": "spec 5.1" },
+    "maxTrials": { "value": 30, "unit": "trials", "source": "spec 5.1" },
+    "gridGeneration": { "value": "t_i = min + i * step, i = 0..round((max - min) / step)", "unit": "none", "source": "contract section 5" },
+    "quantileConvention": { "value": "bin-uniform, clipped to [min, max]", "unit": "none", "source": "contract section 5 (ADR 0002)" },
+    "ciQuantiles": { "value": [0.025, 0.975], "unit": "probability", "source": "contract section 5 (ADR 0002)" }
+  },
+  "acuity": {
+    "stimulusVariable": { "value": "logMAR", "unit": "none", "source": "contract section 5" },
+    "thresholdGrid": { "value": { "min": -0.30, "max": 1.80, "step": 0.02 }, "unit": "logMAR", "source": "spec 5.1" },
+    "betaGrid": { "value": [6, 10, 15, 24, 35], "unit": "1/logMAR", "source": "15/24/35 cover Carkeet et al. 2001 (OVS 78:113); 6 and 10 design assumption for low vision" },
+    "prior": { "value": "uniform", "unit": "none", "source": "Q12" },
+    "stopSd": { "value": 0.05, "unit": "logMAR", "source": "spec 5.1" },
+    "reliableMaxCiWidth": { "value": 0.30, "unit": "logMAR", "source": "design choice (Q5-bis), to be calibrated by simulations" },
+    "letterHeightArcminAtZero": { "value": 5, "unit": "arcmin", "source": "logMAR definition (5' letter, 1' stroke)" },
+    "strokeFraction": { "value": 0.2, "unit": "letter height", "source": "tumbling E: stroke = 1/5 of letter height" },
+    "minStrokeDevicePx": { "value": 2, "unit": "device px", "source": "spec 5.1" },
+    "whoCategoryLowerBoundsExclusive": {
+      "value": { "mild": 0.3, "moderate": 0.48, "severe": 1.0, "blindness": 1.3 },
+      "unit": "logMAR",
+      "source": "ICD-11 9D90; a median strictly greater than the bound enters the category, otherwise 'none'"
+    }
+  },
+  "contrast": {
+    "stimulusVariable": { "value": "log10(Weber contrast)", "unit": "none", "source": "Q15: ease variable; published logCS = -t" },
+    "thresholdGrid": { "value": { "min": -2.10, "max": 0.00, "step": 0.02 }, "unit": "log10 Weber contrast", "source": "spec 5.2 (0 to 2.1 logCS)" },
+    "betaGrid": { "value": [5, 7, 10, 14, 20], "unit": "1/log10 unit", "source": "centre from Weibull slope 3-3.5 (Watson & Pelli 1983; Wallis et al. 2013); 5 and 20 low-confidence assumptions" },
+    "prior": { "value": "uniform", "unit": "none", "source": "Q15" },
+    "stopSd": { "value": 0.08, "unit": "logCS", "source": "spec 5.2" },
+    "reliableMaxCiWidth": { "value": 0.30, "unit": "logCS", "source": "design choice (Q5-bis), to be calibrated by simulations" },
+    "definition": { "value": "Weber: (L_background - L_letter) / L_background, white sRGB background", "unit": "none", "source": "Pelli-Robson / FrACT convention for optotypes" },
+    "letterMinDeg": { "value": 3, "unit": "deg", "source": "spec 5.2 (Pelli-Robson letters ~2.8 deg)" },
+    "letterAcuityOffsetLogMAR": { "value": 0.6, "unit": "logMAR", "source": "spec 5.2 (4x acuity threshold), applied to the acuity ci95 upper bound (Q14)" },
+    "letterMaxDeg": { "value": 8, "unit": "deg", "source": "design choice (Q14), keeps the letter on screen" },
+    "bandLowerBoundsInclusive": {
+      "value": { "normal": 1.65, "borderline": 1.5, "reduced": 1.0 },
+      "unit": "logCS",
+      "source": "Q16; below 1.0 is 'severelyReduced'"
+    }
+  },
+  "geometry": {
+    "mmPerInch": { "value": 25.4, "unit": "mm/inch", "source": "definition" },
+    "testBandMm": { "value": { "min": 350, "max": 450 }, "unit": "mm", "source": "design choice (Q13), during acuity and contrast only" },
+    "referenceDistanceMm": { "value": 400, "unit": "mm", "source": "design choice (Q18, ADR 0003)" }
+  },
+  "font": {
+    "family": { "value": "Atkinson Hyperlegible", "unit": "none", "source": "spec 2" },
+    "file": { "value": "AtkinsonHyperlegible-Regular.ttf", "unit": "none", "source": "https://github.com/google/fonts/raw/1b22086d13bdbbf5ec63d01a39a49246e4ac355f/ofl/atkinsonhyperlegible/AtkinsonHyperlegible-Regular.ttf" },
+    "version": { "value": "Version 1.006", "unit": "none", "source": "name table ID 5 of the file" },
+    "sha256": { "value": "7fb917c89019896d0b52ee84b7cbb3304c18cb90b19a62f5e32712bd23e97669", "unit": "none", "source": "SHA-256 of the file; the iOS app must bundle the same file" },
+    "unitsPerEm": { "value": 1000, "unit": "font units", "source": "head table" },
+    "sxHeight": { "value": 496, "unit": "font units", "source": "OS/2 table (version 4)" },
+    "zeroAdvanceWidth": { "value": 648, "unit": "font units", "source": "hmtx advance of glyph 'zero'" },
+    "xHeightRatio": { "value": 0.496, "unit": "em", "source": "sxHeight / unitsPerEm (r_x)" },
+    "zeroWidthEm": { "value": 0.648, "unit": "em", "source": "zeroAdvanceWidth / unitsPerEm" }
+  },
+  "rules": {
+    "prudentShiftWhenNotReliable": { "value": 0.1, "unit": "logMAR or logCS", "source": "spec R0; applied to 'doubtful' and 'unreliable'" },
+    "acuityReserveLogMAR": { "value": 0.4, "unit": "logMAR", "source": "spec R1; Whittaker & Lovie-Kitchin 1993 (reserve >= 2:1)" },
+    "criticalPrintSizeMarginLogMAR": { "value": 0.1, "unit": "logMAR", "source": "spec R1; only with a measured critical print size (post-MVP)" },
+    "xHeightArcminAtZero": { "value": 5, "unit": "arcmin", "source": "MNREAD print-size convention (x-height)" },
+    "spacingBase": {
+      "value": { "lineHeight": 1.5, "paragraphSpacingEm": 2, "letterSpacingEm": 0.12, "wordSpacingEm": 0.16 },
+      "unit": "em / line-height multiplier",
+      "source": "WCAG 2.x SC 1.4.12"
+    },
+    "spacingCentralLoss": {
+      "value": { "lineHeight": 2, "paragraphSpacingEm": 2, "letterSpacingEm": 0.18, "wordSpacingEm": 0.24 },
+      "unit": "em / line-height multiplier",
+      "source": "spec R2"
+    },
+    "lineLengthFieldFactor": { "value": 0.8, "unit": "none", "source": "spec R2 (L_max = 2 d tan(R) 0.8)" },
+    "maxLineWidthCh": { "value": { "min": 15, "max": 60 }, "unit": "ch", "source": "spec R2" },
+    "minTextContrastByBand": {
+      "value": { "normal": 4.5, "borderline": 7, "reducedAtLowerEdge": 12, "reducedAtUpperEdge": 7, "severelyReduced": 15 },
+      "unit": "contrast ratio",
+      "source": "spec R3 anchored to WCAG AA/AAA; reduced band is linear 12 - 10 (x - 1.0)"
+    },
+    "minUIContrast": { "value": { "floor": 3, "scaleFromText": 0.6666666666666666 }, "unit": "contrast ratio", "source": "Q16: max(3, minTextContrast * 3 / 4.5)" },
+    "darkTheme": { "value": { "background": "#121212", "text": "#E8E6E3" }, "unit": "sRGB hex", "source": "spec R4 (15.04:1)" },
+    "lightTheme": { "value": null, "unit": "sRGB hex", "source": "warm white to be chosen by Rocco; not used in MVP goldens" },
+    "imageBrightnessDimmed": { "value": 0.85, "unit": "multiplier", "source": "design choice (Q21), photophobia or dark theme" },
+    "minTargetPt": { "value": { "base": 44, "max": 64, "referenceFontCssPx": 16 }, "unit": "pt", "source": "Apple HIG 44 pt; Q22: clamp(44 * fontSizeCssPx / 16, 44, 64)" },
+    "focusOutlinePx": { "value": 3, "unit": "CSS px", "source": "design choice (Q22); WCAG 2.4.13 asks >= 2" }
+  },
+  "summary": {
+    "normalVisionAcuityUpperBelow": { "value": 0.3, "unit": "logMAR", "source": "spec 6 (strict <)" },
+    "normalVisionContrastLowerAtLeast": { "value": 1.5, "unit": "logCS", "source": "Q16 (>=)" }
+  },
+  "tolerances": {
+    "intermediateRelative": { "value": 1e-9, "unit": "relative", "source": "Q8: |a - b| <= 1e-9 + 1e-9 |b|" },
+    "intermediateAbsolute": { "value": 1e-9, "unit": "absolute", "source": "Q8" },
+    "publishedAbsolute": { "value": 1e-6, "unit": "absolute", "source": "Q8: ci95, logMAR, logCS, fontSizeCssPx, contrast ratios" }
+  }
+}

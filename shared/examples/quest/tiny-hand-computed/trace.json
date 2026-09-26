@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "1.0",
+  "test": "custom",
+  "engine": {
+    "gamma": 0.25,
+    "lambda": 0.02,
+    "thresholdGrid": {
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.5
+    },
+    "betaGrid": [
+      10
+    ],
+    "prior": "uniform",
+    "stopSd": 0.05,
+    "minTrials": 12,
+    "maxTrials": 30,
+    "reliableMaxCiWidth": 0.3
+  },
+  "stimuli": [
+    0.25,
+    0.75
+  ],
+  "admissibleIndices": [
+    0,
+    1
+  ],
+  "observer": {
+    "type": "scripted",
+    "responses": [
+      true
+    ]
+  },
+  "expected": {
+    "status": "final",
+    "steps": [
+      {
+        "trial": 1,
+        "expectedEntropy": [
+          0.8873699381972902,
+          0.8493879077404869
+        ],
+        "stimulusIndex": 1,
+        "stimulus": 0.75,
+        "correct": true,
+        "thresholdMarginal": [
+          0.4433372718448915,
+          0.4184580942587369,
+          0.13820463389637164
+        ],
+        "mean": 0.3474336810257401,
+        "sd": 0.34944097462942175,
+        "median": 0.3177041846394221,
+        "ci95": [
+          0.0,
+          1.0
+        ],
+        "stop": false
+      }
+    ],
+    "final": {
+      "trials": 1,
+      "endedBy": "responsesExhausted",
+      "estimate": 0.3177041846394221,
+      "ci95": [
+        0.0,
+        1.0
+      ],
+      "reliability": "doubtful",
+      "flags": [
+        "wideInterval"
+      ]
+    }
+  }
+}
