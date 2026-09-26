@@ -1,59 +1,92 @@
 import Foundation
 
-/// Piano di adattamento: solo numeri pronti per adapter.js (SPEC 11). Nessuna scienza della vista qui.
+/// AdaptationPlan secondo il contratto (docs/data-contracts.md, sezione 9), schemaVersion "1.0".
+/// Solo numeri pronti per adapter.js. I campi che significano "non toccare" sono null espliciti.
 nonisolated struct AdaptationPlan: Codable, Sendable, Equatable {
+    struct Context: Codable, Sendable, Equatable {
+        var referenceDistanceMm: Double
+        var ppi: Double
+        var nativeScale: Double
+    }
     struct Text: Codable, Sendable, Equatable {
-        var fontFamily = "Atkinson Hyperlegible"
-        var fontSizePx: Double
-        var lineHeight = 1.5
-        var letterSpacingEm = 0.12
-        var wordSpacingEm = 0.16
-        var paragraphSpacingEm = 2.0
-        var align = "left"
+        var fontFamily: String
+        /// Dimensione minima del testo del corpo a 400 mm; a runtime si riscala per d/400.
+        var fontSizeCssPx: Double
+        var lineHeight: Double
+        var letterSpacingEm: Double
+        var wordSpacingEm: Double
+        var paragraphSpacingEm: Double
+        var align: String
     }
     struct Layout: Codable, Sendable, Equatable {
-        var singleColumn = false
-        var maxLineWidthPx: Double
-        var mode = "normale"          // normale | paragrafo | lettura-grande
-        var moveEdgeElements = false
+        var singleColumn: Bool
+        var maxLineWidthCh: Double
+        var mode: String                 // "normal" nell'MVP
+        var moveEdgeElements: Bool
     }
     struct Color: Codable, Sendable, Equatable {
-        var theme: Theme = .originale
-        var background = "#FFFFFF"
-        var text = "#1A1A1A"
-        var minTextContrast = 4.5
-        var minUIContrast = 3.0
-        var preserveHue = true
-        var imageBrightness = 1.0
+        var theme: String                // original | light | dark
+        var background: String?
+        var text: String?
+        var minTextContrast: Double
+        var minUIContrast: Double
+        var preserveHue: Bool
+        var imageBrightness: Double
+
+        enum CodingKeys: String, CodingKey {
+            case theme, background, text, minTextContrast, minUIContrast, preserveHue, imageBrightness
+        }
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(theme, forKey: .theme)
+            try c.encode(background, forKey: .background)
+            try c.encode(text, forKey: .text)
+            try c.encode(minTextContrast, forKey: .minTextContrast)
+            try c.encode(minUIContrast, forKey: .minUIContrast)
+            try c.encode(preserveHue, forKey: .preserveHue)
+            try c.encode(imageBrightness, forKey: .imageBrightness)
+        }
     }
     struct Controls: Codable, Sendable, Equatable {
-        var underlineLinks = true
-        var minTargetPt = 44.0
-        var focusOutlinePx = 3.0
+        var underlineLinks: Bool
+        var minTargetPt: Double
+        var focusOutlinePx: Double
     }
     struct Cleanup: Codable, Sendable, Equatable {
-        var removeCookieBanners = true
-        var stopAnimations = true
-        var useReadability = true
+        var removeCookieBanners: Bool
+        var stopAnimations: Bool
+        var useReadability: Bool
     }
     struct Speech: Codable, Sendable, Equatable {
-        var tapToSpeak = false
-        var rateWpm = 160.0
+        var tapToSpeak: Bool
+        var rateWpm: Double?
+
+        enum CodingKeys: String, CodingKey { case tapToSpeak, rateWpm }
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(tapToSpeak, forKey: .tapToSpeak)
+            try c.encode(rateWpm, forKey: .rateWpm)
+        }
     }
     struct Screen: Codable, Sendable, Equatable {
         var brightness: Double?
+
+        enum CodingKeys: String, CodingKey { case brightness }
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(brightness, forKey: .brightness)
+        }
     }
 
+    var schemaVersion = ContractParameters.schemaVersion
+    var context: Context
     var text: Text
     var layout: Layout
-    var color = Color()
-    var controls = Controls()
-    var cleanup = Cleanup()
-    var speech = Speech()
-    var screen = Screen()
-
-    /// Spiegazione leggibile di cosa fa ogni regola (per le impostazioni e la demo).
-    var explanations: [String] = []
+    var color: Color
+    var controls: Controls
+    var cleanup: Cleanup
+    var speech: Speech
+    var screen: Screen
 
     func json() -> String {
         let encoder = JSONEncoder()
@@ -62,13 +95,11 @@ nonisolated struct AdaptationPlan: Codable, Sendable, Equatable {
     }
 }
 
-/// Condizioni di visione del momento: distanza e schermo.
-nonisolated struct ViewingContext: Sendable {
-    var distanceMM: Double
+/// Contesto del calcolo: densità dello schermo e nativeScale letto a runtime.
+nonisolated struct ViewingContext: Sendable, Equatable {
     var ppi: Double
-    var scale: Double
-    var screenWidthPt: Double
+    var nativeScale: Double
 
-    /// Millimetri → px CSS (= punti iOS).
-    func cssPx(mm: Double) -> Double { mm * ppi / 25.4 / scale }
+    /// Millimetri → CSS px (= punti iOS): mm · ppi / (25,4 · nativeScale).
+    func cssPx(mm: Double) -> Double { mm * ppi / (25.4 * nativeScale) }
 }

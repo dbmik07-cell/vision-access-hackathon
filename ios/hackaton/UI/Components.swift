@@ -52,10 +52,11 @@ struct ConfidenceBar: View {
 
 /// Indicatore della distanza del viso.
 struct DistanceBadge: View {
+    var range: ClosedRange<Double> = DistanceStatus.validRange
     var tracker = FaceDistanceTracker.shared
 
     var body: some View {
-        let status = DistanceStatus.of(tracker)
+        let status = DistanceStatus.of(tracker, range: range)
         HStack(spacing: 6) {
             Image(systemName: status == .ok ? "face.smiling" : "exclamationmark.triangle.fill")
             if FaceDistanceTracker.isSupported {
@@ -159,7 +160,7 @@ struct AnyButtonStyle: PrimitiveButtonStyle {
 
 extension Double {
     /// Numero con la virgola decimale italiana.
-    func it(_ digits: Int = 2) -> String {
+    nonisolated func it(_ digits: Int = 2) -> String {
         String(format: "%.\(digits)f", self).replacingOccurrences(of: ".", with: ",")
     }
 }

@@ -9,8 +9,8 @@ enum FieldPreset: String, CaseIterable, Identifiable, Codable {
     var label: String {
         switch self {
         case .nessuno: "Nessuno (usa i test)"
-        case .tunnel: "Visione a tunnel (8°)"
-        case .centrale: "Perdita centrale"
+        case .tunnel: "Visione a tunnel (5°)"
+        case .centrale: "Macchia centrale"
         }
     }
 }
@@ -38,10 +38,22 @@ final class AppModel {
         didSet { UserDefaults.standard.set(fieldPreset.rawValue, forKey: "fieldPreset") }
     }
 
+    /// Estensioni post-MVP sopra il piano del contratto: un paragrafo alla volta (R5) e lettura grande (R9).
+    var postMVPExtensions: Bool {
+        didSet { UserDefaults.standard.set(postMVPExtensions, forKey: "postMVPExtensions") }
+    }
+
+    /// Controlli di affidabilità avanzata dell'ultimo test (fuori dal profilo del contratto).
+    var diagnostics: [String] {
+        didSet { UserDefaults.standard.set(diagnostics, forKey: "diagnostics") }
+    }
+
     init() {
         profile = ProfileStore.load()
         demoMode = UserDefaults.standard.bool(forKey: "demoMode")
         fieldPreset = FieldPreset(rawValue: UserDefaults.standard.string(forKey: "fieldPreset") ?? "") ?? .nessuno
+        postMVPExtensions = UserDefaults.standard.object(forKey: "postMVPExtensions") as? Bool ?? true
+        diagnostics = UserDefaults.standard.stringArray(forKey: "diagnostics") ?? []
         route = profile == nil ? .welcome : .browser
         #if DEBUG
         // Argomenti di avvio per le prove nel simulatore.
@@ -59,7 +71,7 @@ final class AppModel {
     /// Profilo usato dalle regole: quello misurato, con sopra l'eventuale campo visivo predefinito.
     var effectiveProfile: VisualProfile? {
         guard fieldPreset != .nessuno else { return profile }
-        var p = profile ?? VisualProfile()
+        var p = profile ?? PresetProfiles.baseline(device: ProfileBuilder.device)
         PresetProfiles.apply(fieldPreset, to: &p)
         return p
     }
@@ -70,7 +82,8 @@ final class AppModel {
         route = .test
     }
 
-    func finishTest(with newProfile: VisualProfile) {
+    func finishTest(with newProfile: VisualProfile, diagnostics: [String] = []) {
+        self.diagnostics = diagnostics
         var p = newProfile
         // Conservo le correzioni manuali della persona.
         if let old = profile { p.userAdjustments = old.userAdjustments }
@@ -134,19 +147,19 @@ struct AppAppearance: Equatable {
     var highContrast: Bool
 
     init(profile: VisualProfile?) {
-        guard let profile, profile.acuity != nil || profile.visualField != nil else {
+        guard let profile else {
             typeSize = .accessibility1; scheme = .light; highContrast = true
             return
         }
-        switch profile.summary.level {
-        case .normale: typeSize = profile.summary.normalVision ? .large : .xxLarge
-        case .lieve: typeSize = .xxxLarge
-        case .moderato: typeSize = .accessibility2
-        case .grave: typeSize = .accessibility3
+        switch profile.acuity.whoCategory {
+        case .none: typeSize = profile.summary.normalVision ? .large : .xxLarge
+        case .mild: typeSize = .xxxLarge
+        case .moderate: typeSize = .accessibility2
+        case .severe, .blindness: typeSize = .accessibility3
         }
-        let theme = profile.light?.preferredTheme
-        scheme = theme == .scuro ? .dark : .light
-        highContrast = (RulesEngine.prudentContrast(profile) ?? 2) < 1.5 || profile.summary.level >= .moderato
+        let dark = profile.light?.preferredTheme == .dark || (profile.light?.preferredTheme == nil && profile.light?.photophobia == true)
+        scheme = dark ? .dark : .light
+        highContrast = RulesEngine.prudentContrast(profile.contrast) < 1.5 || profile.acuity.whoCategory >= .moderate
     }
 
     var background: Color { scheme == .dark ? (highContrast ? .black : Color(white: 0.07)) : (highContrast ? .white : Color(red: 1, green: 0.985, blue: 0.95)) }

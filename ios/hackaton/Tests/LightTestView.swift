@@ -3,7 +3,7 @@ import SwiftUI
 /// Test della luce (SPEC 5.6): lo stesso paragrafo in 4 versioni, confrontate a coppie (6 confronti),
 /// più una domanda sul fastidio della luce. Classifica con il modello di Bradley-Terry.
 struct LightTestView: View {
-    var onFinish: (LightResult) -> Void
+    var onFinish: (LightBlock) -> Void
     var onQuit: () -> Void
 
     struct Version: Hashable {
@@ -27,7 +27,7 @@ struct LightTestView: View {
     @State private var wins: [(winner: Int, loser: Int)] = []
     @State private var askingGlare = false
 
-    init(onFinish: @escaping (LightResult) -> Void, onQuit: @escaping () -> Void) {
+    init(onFinish: @escaping (LightBlock) -> Void, onQuit: @escaping () -> Void) {
         self.onFinish = onFinish
         self.onQuit = onQuit
     }
@@ -87,13 +87,9 @@ struct LightTestView: View {
         let scores = Self.bradleyTerry(n: 4, wins: wins)
         let best = scores.indices.max { scores[$0] < scores[$1] } ?? 0
         let v = Self.versions[best]
-        var dict: [String: Double] = [:]
-        for (i, s) in scores.enumerated() { dict[Self.versions[i].key] = s }
-        onFinish(LightResult(preferredTheme: v.dark ? .scuro : .chiaro,
-                             preferredBrightness: v.bright ? 0.85 : 0.5,
-                             photophobia: glare || (v.dark && !v.bright),
-                             scores: dict,
-                             ambientLux: FaceDistanceTracker.shared.ambientIntensity))
+        onFinish(LightBlock(source: .measured, photophobia: glare || (v.dark && !v.bright),
+                            preferredTheme: v.dark ? .dark : .light,
+                            preferredBrightness: v.bright ? 0.85 : 0.5))
     }
 
     /// Modello di Bradley-Terry: P(i batte j) = p_i / (p_i + p_j).

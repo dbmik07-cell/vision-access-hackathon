@@ -75,3 +75,19 @@ Regola: la soluzione più semplice coerente con SPEC.md.
 
 ## Modalità demo
 - Passi: acuità, contrasto, lettura (6 frasi), luce (~3 minuti). Amsler e campo visivo si mostrano con i profili predefiniti (Impostazioni), come nel copione della demo in SPEC 9.
+
+## Allineamento al contratto dati di Michele (docs/data-contracts.md, v1.0) — prevale su SPEC.md
+- **Costanti**: `shared/parameters.json` e `shared/devices.json` non esistono ancora → tutti i numeri in `hackaton/Contract/ContractParameters.swift`, con i nomi previsti per il file condiviso. La tabella ppi resta in `Core/Geometry.swift` finché non arriva `devices.json`. Modello assente dalla tabella → il test non parte.
+- **QUEST+**: variabile di facilità (contrasto: x = log10 C di Weber in [−2,1, 0], logCS = −t con estremi di ci95 scambiati solo nel profilo); β acuità {6,10,15,24,35}, contrasto {5,7,10,14,20}; stima = mediana; ci95 con quantili a bin; spareggio all'indice più basso entro 1e-12; stop (n ≥ 12 e SD < obiettivo) o n = 30, senza la regola della categoria; affidabilità = larghezza di ci95 ≤ 0,30 (altrimenti doubtful + wideInterval), maxTrialsReached informativo.
+- **Stimoli ammissibili del contrasto**: i grigi a 8 bit mostrati davvero (senza dithering), non la griglia continua. Per l'acuità: la griglia di t filtrata (tratto ≥ 2 px del dispositivo, lettera nel lato corto dello schermo).
+- **Distanza alla risposta**: QUEST+ si aggiorna con il logMAR ricalcolato alla distanza dell'istante della risposta (non sempre un punto della griglia): più corretto fisicamente, fuori dalle tracce scriptate.
+- **Fascia di test** 35–45 cm per acuità e contrasto (pausa fuori fascia); 25–60 cm per gli altri test.
+- **Limite dello schermo**: oltre alla censura del contratto (displayLimitLogMAR, censoredAtDisplayLimit, ceilingLogCS, censoredAtCeiling), stop anticipato dopo 3 risposte giuste di fila allo stimolo più difficile disegnabile; stop dopo 3 mancate allo stimolo più facile → ci95 alto = 1,8 (acuità) o [0, …] (contrasto): adattamento al massimo. Messaggi nei risultati.
+- **Gesto "non vedo"**: tocco con due dita = risposta sbagliata, con conferma vocale.
+- **Prove di controllo facili** (fase 7) disattivate: affidabilità avanzata post-MVP. I controlli avanzati restano solo come note informative nei risultati ("diagnostics"), fuori dal VisualProfile e senza effetto sul piano.
+- **Lettera del contrasto**: max(3°, 5′·10^(ci95 alto + 0,6)), massimo 8°, flag contrastLetterSizeCapped.
+- **Profilo**: nomi e valori delle sezioni 8; blocchi opzionali con source; reliability in inglese; whoCategory, band; summary.overallReliability null se nulla è misurato. La lettura (riservata nel contratto) usa i campi dell'app. `Codable` non rifiuta i campi sconosciuti (decodifica non rigorosa: da fare quando gli schemi saranno definitivi).
+- **Profilo di partenza senza test** (serve un profilo completo per applicare i preset): acuità preset 0,0 [−0,1, 0,1], contrasto preset 1,8 [1,7, 1,9].
+- **Piano**: R0–R8 della sezione 9; fontSizeCssPx a 400 mm, riscalata per d/400 a runtime; righe in ch (zeroWidthEm 0,648 dal glifo "0" di Atkinson Hyperlegible 1.006); tema "original" senza test della luce; tema chiaro #FAF7F0 / #1A1A1A; preset tunnel 5°; perdita centrale = Amsler preset con centralInvolved.
+- **Estensioni post-MVP** (interruttore in Impostazioni, attivo di default): sopra il piano del contratto, R5 "un paragrafo alla volta" con campo < 10° e R9 "lettura grande" con meno di 12 caratteri per riga. Il piano del contratto (e i golden) restano con mode "normal"; l'estensione modifica solo la copia inviata ad adapter.js.
+- **Casi golden**: shared/examples/ è ancora vuoto → nessun test golden Swift per ora; i test unitari riproducono gli oracoli manuali descritti nel contratto (R0 +0,1 esatto, soglie R3, normalVision a 0,3, nativeScale 2,88, font a 400 mm).

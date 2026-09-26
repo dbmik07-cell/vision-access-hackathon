@@ -12,8 +12,8 @@ struct ResultsView: View {
                 Text("Ecco come vedi").font(.ipo(.largeTitle, bold: true))
                 if let p = app.effectiveProfile {
                     summaryCard(p)
-                    if let a = p.acuity { acuityCard(a) }
-                    if let c = p.contrast { contrastCard(c) }
+                    acuityCard(p.acuity)
+                    contrastCard(p.contrast)
                     if let r = p.reading, r.measured { readingCard(r) }
                     if let am = p.amsler { amslerCard(am) }
                     if let f = p.visualField { FieldResultCard(field: f) }
@@ -47,46 +47,66 @@ struct ResultsView: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 24))
     }
 
+    private func presetTag(_ source: BlockSource) -> some View {
+        Group {
+            if source == .preset {
+                Text("valore di esempio, non misurato").font(.ipo(.footnote, bold: true)).foregroundStyle(.orange)
+            }
+        }
+    }
+
     private func summaryCard(_ p: VisualProfile) -> some View {
         card(p.summary.normalVision ? "Vista nella norma" : "In sintesi", icon: "eye") {
             if p.summary.normalVision {
-                Text("La tua vista risulta nella norma per questi test, non serve nessun adattamento.").font(.ipo(.title3))
+                // Frase riscritta (contratto, sezione 13): nessun caso speciale nel piano.
+                Text("La tua vista risulta nella norma per questi test. Le pagine si adattano comunque in modo leggero; puoi sempre tornare all'originale.")
+                    .font(.ipo(.title3))
             } else {
-                Text("Livello complessivo: \(p.summary.level.rawValue).").font(.ipo(.title3))
+                Text("Acuità da vicino: \(p.acuity.whoCategory.label). Contrasto: \(p.contrast.band.label).").font(.ipo(.title3))
             }
-            reliabilityRow(p.summary.overallReliability)
-            ForEach(p.summary.reasons, id: \.self) { Text("• \($0)").font(.ipo(.body)) }
-            if p.summary.overallReliability == .nonAffidabile {
+            if let r = p.summary.overallReliability { reliabilityRow(r) }
+            ForEach(app.diagnostics, id: \.self) { Text("• \($0)").font(.ipo(.body)) }
+            if p.summary.overallReliability == .unreliable {
                 BigButton(title: "Ripeti il test", systemImage: "arrow.counterclockwise") { app.startTest() }
             }
         }
     }
 
-    private func acuityCard(_ a: AcuityResult) -> some View {
+    private func acuityCard(_ a: AcuityBlock) -> some View {
         card("Acuità", icon: "textformat.size") {
-            Text("Da vicino vedi come \(Acuity.decimi(a.logMAR).it(1))/10, cioè \(Acuity.snellen(a.logMAR)).")
-                .font(.ipo(.title3, bold: true))
-            Text("Soglia \(a.logMAR.it()) logMAR, intervallo al 95% \(a.ci95[0].it())–\(a.ci95[1].it()). Categoria OMS: \(whoCategory(a.logMAR)). \(a.trials) risposte a circa \(Int(a.meanDistanceCM)) cm.")
+            presetTag(a.source)
+            if a.censoredAtDisplayLimit == true, let limit = a.displayLimitLogMAR {
+                Text("Vedi anche la lettera più piccola che lo schermo può disegnare: acuità ≤ \(limit.it()) logMAR.")
+                    .font(.ipo(.title3, bold: true))
+            } else {
+                Text("Da vicino vedi come \(Acuity.decimi(a.logMAR).it(1))/10, cioè \(Acuity.snellen(a.logMAR)).")
+                    .font(.ipo(.title3, bold: true))
+            }
+            Text("Mediana \(a.logMAR.it()) logMAR, intervallo al 95% \(a.ci95[0].it())–\(a.ci95[1].it()). Categoria OMS: \(a.whoCategory.label).\(a.trials.map { " \($0) risposte." } ?? "")")
                 .font(.ipo(.body))
             ConfidenceBar(estimate: a.logMAR, ci: a.ci95[0]...a.ci95[1], range: -0.3...1.8, boundaries: [0.3, 0.48, 1.0, 1.3])
-            Text("Le fasce OMS riguardano la vista da lontano; qui misuriamo quella da vicino.")
+            Text("Le categorie OMS riguardano la vista da lontano; qui misuriamo quella da vicino.")
                 .font(.ipo(.footnote)).foregroundStyle(app.appearance.secondary)
             reliabilityRow(a.reliability, flags: a.flags)
         }
     }
 
-    private func contrastCard(_ c: ContrastResult) -> some View {
+    private func contrastCard(_ c: ContrastBlock) -> some View {
         card("Contrasto", icon: "circle.lefthalf.filled") {
-            let band = c.logCS >= 1.5 ? "normale" : (c.logCS >= 1.0 ? "ridotta" : "molto ridotta")
-            Text("Sensibilità al contrasto \(band).").font(.ipo(.title3, bold: true))
-            Text("\(c.logCS.it()) log, intervallo al 95% \(c.ci95[0].it())–\(c.ci95[1].it()). Vedi lettere fino al \((100 * pow(10, -c.logCS)).it(1))% di contrasto.")
+            presetTag(c.source)
+            if c.censoredAtCeiling == true, let ceil = c.ceilingLogCS {
+                Text("Vedi anche il contrasto più basso che lo schermo può mostrare: ≥ \(ceil.it()) log.").font(.ipo(.title3, bold: true))
+            } else {
+                Text("Sensibilità al contrasto \(c.band.label).").font(.ipo(.title3, bold: true))
+            }
+            Text("Mediana \(c.logCS.it()) log, intervallo al 95% \(c.ci95[0].it())–\(c.ci95[1].it()). Vedi lettere fino al \((100 * pow(10, -c.logCS)).it(1))% di contrasto.")
                 .font(.ipo(.body))
-            ConfidenceBar(estimate: c.logCS, ci: c.ci95[0]...c.ci95[1], range: 0...2.1, boundaries: [1.0, 1.5])
+            ConfidenceBar(estimate: c.logCS, ci: c.ci95[0]...c.ci95[1], range: 0...2.1, boundaries: [1.0, 1.5, 1.65])
             reliabilityRow(c.reliability, flags: c.flags)
         }
     }
 
-    private func readingCard(_ r: ReadingResult) -> some View {
+    private func readingCard(_ r: ReadingBlock) -> some View {
         card("Lettura", icon: "text.book.closed") {
             Text("Leggi al massimo \(Int(r.maxReadingSpeedWpm)) parole al minuto.").font(.ipo(.title3, bold: true))
             Text("Dimensione critica di stampa \(r.criticalPrintSizeLogMAR.it()) logMAR (sotto questa rallenti). Acuità di lettura \(r.readingAcuityLogMAR.it()) logMAR.")
@@ -95,51 +115,53 @@ struct ResultsView: View {
         }
     }
 
-    private func amslerCard(_ a: AmslerResult) -> some View {
+    private func amslerCard(_ a: AmslerBlock) -> some View {
         card("Griglia di Amsler", icon: "grid") {
+            presetTag(a.source)
             HStack(spacing: 16) {
                 if let r = a.right { AmslerMiniMap(eye: r, label: "Destro") }
                 if let l = a.left { AmslerMiniMap(eye: l, label: "Sinistro") }
             }
-            Text(a.centralSeverity == "no" ? "Nessuna zona storta o mancante."
-                 : "Zona centrale \(a.centralSeverity == "grande" ? "ampia" : "piccola") con linee storte o mancanti.")
+            Text(!a.hasProblem ? "Nessuna zona storta o mancante."
+                 : (a.centralInvolved ? "Zona centrale con linee storte o mancanti: coinvolge i 2 gradi centrali." : "Linee storte o mancanti fuori dal centro."))
                 .font(.ipo(.body))
         }
     }
 
-    private func lightCard(_ l: LightResult) -> some View {
+    private func lightCard(_ l: LightBlock) -> some View {
         card("Luce", icon: "sun.max") {
-            Text("Preferisci il tema \(l.preferredTheme.rawValue), luminosità \(Int(l.preferredBrightness * 100))%.")
-                .font(.ipo(.title3, bold: true))
+            presetTag(l.source)
+            if let t = l.preferredTheme {
+                Text("Preferisci il tema \(t == .dark ? "scuro" : "chiaro")\(l.preferredBrightness.map { ", luminosità \(Int($0 * 100))%" } ?? "").")
+                    .font(.ipo(.title3, bold: true))
+            }
             Text(l.photophobia ? "La luce forte ti dà fastidio." : "La luce non ti dà particolare fastidio.").font(.ipo(.body))
         }
     }
 
     private func adaptationCard(_ p: VisualProfile) -> some View {
         let plan = RulesEngine.plan(profile: p, context: BrowserContext.current())
+        let notes = RulesEngine.explanations(profile: p, plan: plan, distanceMm: FaceDistanceTracker.shared.effectiveMM)
         return card("Come cambiano le pagine", icon: "wand.and.stars") {
-            Text("Testo di \(Int(plan.text.fontSizePx)) punti a \(Int(FaceDistanceTracker.shared.effectiveCM)) cm, che cresce se allontani il telefono.")
-                .font(.ipo(.title3, bold: true))
-            ForEach(plan.explanations, id: \.self) { Text("• \($0)").font(.ipo(.body)) }
+            ForEach(notes, id: \.self) { Text("• \($0)").font(.ipo(.body)) }
         }
     }
 
-    private func reliabilityRow(_ r: Reliability, flags: [String] = []) -> some View {
+    private func reliabilityRow(_ r: ContractReliability, flags: [String] = []) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Label("Test \(r.label)", systemImage: r == .affidabile ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+            Label("Test \(r.label)", systemImage: r == .reliable ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
                 .font(.ipo(.headline, bold: true))
-                .foregroundStyle(r == .affidabile ? Color.green : (r == .dubbio ? Color.orange : Color.red))
-            ForEach(flags, id: \.self) { Text("– \($0)").font(.ipo(.footnote)) }
+                .foregroundStyle(r == .reliable ? Color.green : (r == .doubtful ? Color.orange : Color.red))
+            ForEach(flags, id: \.self) { Text("– \(Self.flagLabel($0))").font(.ipo(.footnote)) }
         }
     }
 
-    private func whoCategory(_ l: Double) -> String {
-        switch l {
-        case ...0.3: "normale"
-        case ...0.48: "lieve"
-        case ...1.0: "moderata"
-        case ...1.3: "grave"
-        default: "cecità"
+    static func flagLabel(_ f: String) -> String {
+        switch f {
+        case "wideInterval": "intervallo al 95% largo (oltre 0,30)"
+        case "maxTrialsReached": "raggiunte 30 risposte senza la precisione voluta"
+        case "contrastLetterSizeCapped": "lettera del contrasto limitata a 8°"
+        default: f
         }
     }
 
@@ -147,13 +169,11 @@ struct ResultsView: View {
         guard let p = app.effectiveProfile else { return }
         var text = "Ecco come vedi. "
         if p.summary.normalVision {
-            text += "La tua vista risulta nella norma per questi test, non serve nessun adattamento. "
-        } else if let a = p.acuity {
-            text += "Da vicino vedi come \(Acuity.decimi(a.logMAR).it(1).replacingOccurrences(of: ",0", with: "")) decimi. "
+            text += "La tua vista risulta nella norma per questi test. "
+        } else {
+            text += "Da vicino vedi come \(Acuity.decimi(p.acuity.logMAR).it(1).replacingOccurrences(of: ",0", with: "")) decimi. "
         }
-        if let c = p.contrast {
-            text += c.logCS >= 1.5 ? "Il contrasto è normale. " : "Il contrasto è ridotto. "
-        }
+        text += p.contrast.logCS >= 1.5 ? "Il contrasto è normale. " : "Il contrasto è ridotto. "
         text += "Le pagine web adesso si adattano ai tuoi occhi. Tocca Inizia a navigare."
         Voice.shared.say(text)
     }
@@ -168,7 +188,7 @@ struct AmslerMiniMap: View {
                 ForEach(0..<10, id: \.self) { r in
                     GridRow {
                         ForEach(0..<10, id: \.self) { c in
-                            let v = eye.cells[r][c]
+                            let v = eye.cells?[r][c] ?? 0
                             Rectangle().fill(v == 0 ? Color(white: 0.92) : (v == 1 ? Color.orange : Color.black))
                                 .frame(width: 11, height: 11)
                         }
@@ -182,21 +202,23 @@ struct AmslerMiniMap: View {
 
 /// Mappa di calore del campo visivo per occhio.
 struct FieldResultCard: View {
-    var field: VisualFieldResult
+    var field: VisualFieldBlock
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(field.isPreset ? "Campo visivo (profilo di esempio)" : "Campo visivo", systemImage: "circle.dotted")
+            Label(field.source == .preset ? "Campo visivo (profilo di esempio)" : "Campo visivo", systemImage: "circle.dotted")
                 .font(.ipo(.title2, bold: true))
             HStack(alignment: .top, spacing: 12) {
                 if let r = field.right { eyeView(r, label: "Destro") }
                 if let l = field.left { eyeView(l, label: "Sinistro") }
             }
             if let e = field.right ?? field.left {
-                Text("\(e.pattern.label.capitalized), raggio \(Int(e.fieldRadiusDeg))°. Difetto medio \(e.meanDefect.it(1)) livelli.")
+                Text("\(e.pattern.label.capitalized), raggio \(Int(e.fieldRadiusDeg))°.\(e.meanDefect.map { " Difetto medio \($0.it(1)) livelli." } ?? "")")
                     .font(.ipo(.title3, bold: true))
-                Text("Perdite di fissazione \(Int(e.fixationLossRate * 100))% · falsi positivi \(Int(e.falsePositiveRate * 100))% · falsi negativi \(Int(e.falseNegativeRate * 100))%. Test \(e.reliability.label).")
-                    .font(.ipo(.body))
+                if let fl = e.fixationLossRate, let fp = e.falsePositiveRate, let fn = e.falseNegativeRate {
+                    Text("Perdite di fissazione \(Int(fl * 100))% · falsi positivi \(Int(fp * 100))% · falsi negativi \(Int(fn * 100))%.\(e.reliability.map { " Test \($0.label)." } ?? "")")
+                        .font(.ipo(.body))
+                }
                 Text("Intensità relative dello schermo (10 livelli), non decibel di un perimetro clinico.")
                     .font(.ipo(.footnote)).foregroundStyle(.secondary)
             }
@@ -220,7 +242,8 @@ struct FieldHeatmap: View {
 
     var body: some View {
         Canvas { ctx, size in
-            let xs = eye.points.map(\.x), ys = eye.points.map(\.y)
+            let pts = eye.points ?? []
+            let xs = pts.map(\.x), ys = pts.map(\.y)
             guard let minX = xs.min(), let maxX = xs.max(), let minY = ys.min(), let maxY = ys.max() else { return }
             let spanX = max(maxX - minX, 1), spanY = max(maxY - minY, 1)
             let scale = min(size.width / (spanX + 6), size.height / (spanY + 6))
@@ -235,7 +258,7 @@ struct FieldHeatmap: View {
                 while x < cx + maxX * scale + cell / 2 {
                     let gx = (x - cx) / scale, gy = (cy - y) / scale
                     var num = 0.0, den = 0.0
-                    for p in eye.points {
+                    for p in pts {
                         let d2 = (p.x - gx) * (p.x - gx) + (p.y - gy) * (p.y - gy) + 1
                         let w = 1 / (d2 * d2)
                         num += w * p.sensitivity; den += w

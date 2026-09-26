@@ -26,6 +26,7 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.inline)
                     .labelsHidden()
+                    Toggle("Estensioni post-MVP: un paragrafo alla volta (R5) e lettura grande (R9)", isOn: $app.postMVPExtensions)
                 }
 
                 Section("Correzioni manuali") {
@@ -49,7 +50,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("IpoView 1.0 · \(DeviceDisplay.modelName) · \(Int(DeviceDisplay.ppi)) ppi")
+                    Text("IpoView 1.0 · \(DeviceDisplay.modelName) · \(DeviceDisplay.ppi.map { "\(Int($0))" } ?? "modello non in tabella") ppi")
                         .font(.ipo(.footnote))
                         .foregroundStyle(.secondary)
                         .onTapGesture {
@@ -72,49 +73,48 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func manualEditors(_ p: VisualProfile) -> some View {
-        if let a = p.acuity {
-            VStack(alignment: .leading) {
-                Text("Acuità: \(a.logMAR.it()) logMAR")
-                Slider(value: Binding(get: { a.logMAR }, set: { v in
-                    var np = p
-                    let w = (a.ci95[1] - a.ci95[0]) / 2
-                    np.acuity?.logMAR = v
-                    np.acuity?.ci95 = [v - w, v + w]
-                    ProfileBuilder.finalize(&np)
-                    app.profile = np
-                }), in: -0.2...1.5, step: 0.05)
-            }
+        VStack(alignment: .leading) {
+            Text("Acuità: \(p.acuity.logMAR.it()) logMAR")
+            Slider(value: Binding(get: { p.acuity.logMAR }, set: { v in
+                var np = p
+                let w = (p.acuity.ci95[1] - p.acuity.ci95[0]) / 2
+                np.acuity.logMAR = v
+                np.acuity.ci95 = [v - w, v + w]
+                np.acuity.whoCategory = WHOCategory.from(logMAR: v)
+                ProfileBuilder.finalize(&np)
+                app.profile = np
+            }), in: -0.2...1.5, step: 0.05)
         }
-        if let c = p.contrast {
-            VStack(alignment: .leading) {
-                Text("Contrasto: \(c.logCS.it()) log")
-                Slider(value: Binding(get: { c.logCS }, set: { v in
-                    var np = p
-                    let w = (c.ci95[1] - c.ci95[0]) / 2
-                    np.contrast?.logCS = v
-                    np.contrast?.ci95 = [v - w, v + w]
-                    ProfileBuilder.finalize(&np)
-                    app.profile = np
-                }), in: 0.3...2.0, step: 0.05)
-            }
+        VStack(alignment: .leading) {
+            Text("Contrasto: \(p.contrast.logCS.it()) log")
+            Slider(value: Binding(get: { p.contrast.logCS }, set: { v in
+                var np = p
+                let w = (p.contrast.ci95[1] - p.contrast.ci95[0]) / 2
+                np.contrast.logCS = v
+                np.contrast.ci95 = [v - w, v + w]
+                np.contrast.band = ContrastBand.from(logCS: v)
+                ProfileBuilder.finalize(&np)
+                app.profile = np
+            }), in: 0.3...2.0, step: 0.05)
         }
-        Stepper("Testo: \(p.userAdjustments.textSizeOffsetLogMAR >= 0 ? "+" : "")\(p.userAdjustments.textSizeOffsetLogMAR.it(1)) logMAR",
-                value: Binding(get: { p.userAdjustments.textSizeOffsetLogMAR }, set: { v in
+        Stepper("Testo: \(p.textSizeOffset >= 0 ? "+" : "")\(p.textSizeOffset.it(1)) logMAR",
+                value: Binding(get: { p.textSizeOffset }, set: { v in
                     var np = p
-                    np.userAdjustments.textSizeOffsetLogMAR = (v * 10).rounded() / 10
+                    np.userAdjustments = UserAdjustments(textSizeOffsetLogMAR: (v * 10).rounded() / 10)
                     app.profile = np
                 }), in: -0.5...0.8, step: 0.1)
     }
 }
 
-/// Profilo di esempio per provare il browser senza fare il test.
+/// Profilo di esempio per provare il browser senza fare il test (valori misurati finti, source "measured").
 enum SampleProfiles {
     static func lowAcuity() -> VisualProfile {
-        var p = VisualProfile()
-        p.acuity = AcuityResult(logMAR: 0.35, ci95: [0.28, 0.42], slope: 15, trials: 24, reliability: .affidabile,
-                                flags: [], meanDistanceCM: 38, log: [])
-        p.contrast = ContrastResult(logCS: 1.35, ci95: [1.25, 1.45], trials: 18, reliability: .affidabile,
-                                    flags: [], letterLogMAR: 1.56, log: [])
+        var p = VisualProfile(
+            device: ProfileBuilder.device,
+            acuity: AcuityBlock(source: .measured, logMAR: 0.35, ci95: [0.28, 0.42], reliability: .reliable, flags: [],
+                                whoCategory: .mild, trials: 24, displayLimitLogMAR: -0.02, censoredAtDisplayLimit: false),
+            contrast: ContrastBlock(source: .measured, logCS: 1.35, ci95: [1.25, 1.45], reliability: .reliable, flags: [],
+                                    band: .reduced, trials: 18, ceilingLogCS: 2.05, censoredAtCeiling: false))
         ProfileBuilder.finalize(&p)
         return p
     }

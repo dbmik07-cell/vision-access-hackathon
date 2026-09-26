@@ -115,13 +115,16 @@ final class FaceDistanceTracker: NSObject, ARSessionDelegate {
 enum DistanceStatus: Equatable {
     case ok, tooClose, tooFar, noFace
 
+    /// Intervallo generale (campo visivo, Amsler, lettura).
     static let validRange = 25.0...60.0
+    /// Fascia di test del contratto per acuità e contrasto: 35–45 cm.
+    static let eTestRange = (ContractParameters.testDistanceMinMm / 10)...(ContractParameters.testDistanceMaxMm / 10)
 
-    static func of(_ tracker: FaceDistanceTracker) -> DistanceStatus {
+    static func of(_ tracker: FaceDistanceTracker, range: ClosedRange<Double> = validRange) -> DistanceStatus {
         guard FaceDistanceTracker.isSupported else { return .ok }   // simulatore: distanza fissa
         guard tracker.faceVisible, let d = tracker.distanceCM else { return .noFace }
-        if d < validRange.lowerBound { return .tooClose }
-        if d > validRange.upperBound { return .tooFar }
+        if d < range.lowerBound { return .tooClose }
+        if d > range.upperBound { return .tooFar }
         return .ok
     }
 

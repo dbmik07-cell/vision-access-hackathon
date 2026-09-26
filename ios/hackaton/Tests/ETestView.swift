@@ -18,7 +18,7 @@ struct ETestView: View {
     private var isAcuity: Bool { engine.kind == .acuity }
 
     var body: some View {
-        let status = DistanceStatus.of(tracker)
+        let status = DistanceStatus.of(tracker, range: DistanceStatus.eTestRange)
         ZStack {
             Color.white.ignoresSafeArea()
             GestureSurface(onSwipe: { engine.respond($0) }, onTwoFingerTap: { engine.respondNotSeen() })
@@ -37,7 +37,7 @@ struct ETestView: View {
 
             VStack {
                 HStack {
-                    DistanceBadge()
+                    DistanceBadge(range: DistanceStatus.eTestRange)
                     Spacer()
                     Button {
                         engine.setManualPaused(true)
@@ -113,7 +113,7 @@ struct ETestView: View {
                       : status == .tooFar ? "arrow.up.backward.and.arrow.down.forward" : "face.dashed")
                     .font(.system(size: 80, weight: .bold))
                 Text(status.message).font(.ipo(.largeTitle, bold: true)).multilineTextAlignment(.center)
-                Text("Il test riprende da solo tra 25 e 60 cm.").font(.ipo(.title3))
+                Text("Il test riprende da solo tra 35 e 45 cm.").font(.ipo(.title3))
             }
         }
         .foregroundStyle(.black)

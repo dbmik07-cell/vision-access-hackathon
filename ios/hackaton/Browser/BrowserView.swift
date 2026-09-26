@@ -44,6 +44,7 @@ struct BrowserView: View {
         .background(look.background.ignoresSafeArea())
         .tint(look.accent)
         .onAppear {
+            model.extensionsEnabled = app.postMVPExtensions
             model.update(profile: app.effectiveProfile)
             model.startFollowingDistance()
             #if DEBUG
@@ -58,6 +59,7 @@ struct BrowserView: View {
         .onChange(of: app.effectiveProfile.map(ProfileStore.json) ?? "") { _, _ in
             model.update(profile: app.effectiveProfile)
         }
+        .onChange(of: app.postMVPExtensions) { _, v in model.extensionsEnabled = v }
     }
 
     private func topBar(_ look: AppAppearance) -> some View {
@@ -134,8 +136,8 @@ struct BrowserView: View {
 
     /// R10: correzione manuale a passi di 0,1 logMAR, salvata nel profilo.
     private func adjustText(_ delta: Double) {
-        var p = app.profile ?? VisualProfile()
-        p.userAdjustments.textSizeOffsetLogMAR = ((p.userAdjustments.textSizeOffsetLogMAR + delta) * 10).rounded() / 10
+        var p = app.profile ?? PresetProfiles.baseline(device: ProfileBuilder.device)
+        p.userAdjustments = UserAdjustments(textSizeOffsetLogMAR: ((p.textSizeOffset + delta) * 10).rounded() / 10)
         app.profile = p
         let count = UserDefaults.standard.integer(forKey: "enlargeCount") + (delta > 0 ? 1 : 0)
         UserDefaults.standard.set(count, forKey: "enlargeCount")

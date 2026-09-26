@@ -2,7 +2,10 @@ import Foundation
 
 // MARK: - Funzione psicometrica
 
-/// P(giusta | s) = γ + (1 − γ − λ) · 1 / (1 + e^(−β (s − t)))
+/// P(giusta | x) = γ + (1 − γ − λ) · 1 / (1 + e^(−β (x − t)))
+///
+/// x è la variabile di "facilità" (contratto, sezione 5): cresce con la visibilità dello stimolo.
+/// Acuità: x = logMAR della lettera. Contrasto: x = log10(C di Weber), da −2,1 a 0.
 ///
 /// - γ (guess): probabilità di indovinare tirando a caso (0,25 con 4 direzioni).
 /// - λ (lapse): errori da distrazione anche su stimoli chiaramente visibili.
@@ -11,8 +14,7 @@ import Foundation
 nonisolated struct PsychometricFunction: Sendable, Codable, Equatable {
     var guess: Double = 0.25
     var lapse: Double = 0.02
-    /// true: stimolo più grande = più facile (acuità in logMAR).
-    /// false: stimolo più grande = più difficile (contrasto in log 1/C).
+    /// Sempre true nel contratto (variabile di facilità); false resta solo per compatibilità.
     var increasingWithStimulus: Bool = true
 
     func pCorrect(stimulus s: Double, threshold t: Double, slope b: Double) -> Double {
@@ -114,9 +116,17 @@ nonisolated struct QuestPlus: Sendable {
         return pCorrectTotal * hCorrect + pWrongTotal * hWrong
     }
 
-    /// Lo stimolo, tra quelli mostrabili adesso, con l'entropia attesa minima.
+    /// Lo stimolo, tra quelli ammissibili adesso, con l'entropia attesa minima.
+    /// Spareggio (contratto): stimoli entro 1e-12 dal minimo sono pari, vince l'indice più basso nella lista.
+    func nextStimulusIndex(candidates: [Double]) -> Int? {
+        guard !candidates.isEmpty else { return nil }
+        let h = candidates.map { expectedEntropy(stimulus: $0) }
+        let best = h.min()!
+        return h.firstIndex { $0 <= best + ContractParameters.tieTolerance }
+    }
+
     func nextStimulus(candidates: [Double]) -> Double? {
-        candidates.min { expectedEntropy(stimulus: $0) < expectedEntropy(stimulus: $1) }
+        nextStimulusIndex(candidates: candidates).map { candidates[$0] }
     }
 
     // MARK: Statistiche sul posteriore
@@ -150,23 +160,28 @@ nonisolated struct QuestPlus: Sendable {
         zip(slopes, slopeMarginal).reduce(0) { $0 + $1.0 * $1.1 }
     }
 
-    /// Quantile della marginale della soglia (con interpolazione lineare nella cella).
+    /// Quantile con la convenzione a bin (contratto, sezione 5; ADR 0002):
+    /// il punto t_i distribuisce la sua massa uniformemente su [t_i − h/2, t_i + h/2],
+    /// quindi la CDF è continua e lineare a tratti. q = min{x : F(x) ≥ q}: primo bin con p_i > 0
+    /// in cui la somma cumulata raggiunge q, interpolazione lineare nel bin, limite alla griglia.
     func thresholdQuantile(_ q: Double) -> Double {
         let marginal = thresholdMarginal
+        let h = thresholds.count > 1 ? thresholds[1] - thresholds[0] : ContractParameters.thresholdStep
         var cumulative = 0.0
-        for (i, p) in marginal.enumerated() {
+        for (i, p) in marginal.enumerated() where p > 0 {
             if cumulative + p >= q {
-                let fraction = p > 0 ? (q - cumulative) / p : 0
-                let step = i + 1 < thresholds.count ? thresholds[i + 1] - thresholds[i]
-                    : (i > 0 ? thresholds[i] - thresholds[i - 1] : 0)
-                return thresholds[i] + (fraction - 0.5) * step
+                let x = thresholds[i] - h / 2 + h * (q - cumulative) / p
+                return min(max(x, thresholds.first!), thresholds.last!)
             }
             cumulative += p
         }
         return thresholds.last!
     }
 
-    /// Intervallo di credibilità al 95%: quantili 2,5% e 97,5% del posteriore.
+    /// Stima pubblicata: la mediana della marginale.
+    var thresholdMedian: Double { thresholdQuantile(0.5) }
+
+    /// Intervallo al 95%: quantili 2,5% e 97,5% del posteriore.
     var ci95: ClosedRange<Double> {
         let lo = thresholdQuantile(0.025), hi = thresholdQuantile(0.975)
         return min(lo, hi)...max(lo, hi)
@@ -202,53 +217,53 @@ nonisolated struct StopRule: Sendable {
     var minTrials: Int
     var maxTrials: Int
     var targetSD: Double
-    /// Confini tra categorie: si continua finché la categoria non è certa al 95%.
-    var categoryBoundaries: [Double] = []
-    var categoryConfidence: Double = 0.95
 
-    /// Mai prima di minTrials; stop a maxTrials; altrimenti stop quando
-    /// DS < obiettivo E la categoria è certa al 95%.
+    /// Contratto: stop se (n ≥ 12 e SD < obiettivo) oppure n = 30. SD calcolata sui punti della griglia.
     func shouldStop(_ q: QuestPlus) -> Bool {
         let n = q.trials.count
-        if n < minTrials { return false }
         if n >= maxTrials { return true }
-        let precise = q.thresholdSD < targetSD
-        let certain = categoryBoundaries.isEmpty
-            || q.categoryConfidence(boundaries: categoryBoundaries) >= categoryConfidence
-        return precise && certain
+        return n >= minTrials && q.thresholdSD < targetSD
     }
 }
 
-// MARK: - Configurazioni dei test
+// MARK: - Configurazioni dei test (contratto, sezione 5)
 
 nonisolated enum QuestConfigs {
-    /// Acuità: soglia da −0,3 a 1,8 logMAR (passo 0,02), 5 pendenze.
+    typealias P = ContractParameters
+
     static func acuity() -> QuestPlus {
-        QuestPlus(thresholds: QuestPlus.grid(from: -0.3, to: 1.8, step: 0.02),
-                  slopes: [4, 8, 15, 25, 40],
-                  function: PsychometricFunction(guess: 0.25, lapse: 0.02, increasingWithStimulus: true))
+        QuestPlus(thresholds: QuestPlus.grid(from: P.acuityThresholdMin, to: P.acuityThresholdMax, step: P.thresholdStep),
+                  slopes: P.acuityBetas,
+                  function: PsychometricFunction(guess: P.guessRate, lapse: P.lapseRate, increasingWithStimulus: true))
     }
 
-    /// Fasce OMS in logMAR (SPEC 5.1).
-    static let whoBoundaries = [0.3, 0.48, 1.0, 1.3]
-
-    static func acuityStop(demo: Bool) -> StopRule {
-        demo ? StopRule(minTrials: 8, maxTrials: 16, targetSD: 0.08, categoryBoundaries: [0.3])
-             : StopRule(minTrials: 12, maxTrials: 30, targetSD: 0.05, categoryBoundaries: whoBoundaries)
-    }
-
-    /// Contrasto: log della sensibilità da 0 a 2,1. Lo stimolo è log10(1/C):
-    /// più è alto, più la lettera è sbiadita (più difficile).
+    /// Contrasto: t e stimoli su log10(C di Weber) in [−2,1, 0]. logCS = −t.
     static func contrast() -> QuestPlus {
-        QuestPlus(thresholds: QuestPlus.grid(from: 0, to: 2.1, step: 0.02),
-                  slopes: [4, 8, 15, 25, 40],
-                  function: PsychometricFunction(guess: 0.25, lapse: 0.02, increasingWithStimulus: false))
+        QuestPlus(thresholds: QuestPlus.grid(from: P.contrastThresholdMin, to: P.contrastThresholdMax, step: P.thresholdStep),
+                  slopes: P.contrastBetas,
+                  function: PsychometricFunction(guess: P.guessRate, lapse: P.lapseRate, increasingWithStimulus: true))
     }
 
-    static let contrastBoundaries = [1.0, 1.5]
+    /// Modalità demo (fuori contratto, solo per la presentazione): test più corti.
+    static func acuityStop(demo: Bool) -> StopRule {
+        demo ? StopRule(minTrials: 8, maxTrials: 16, targetSD: 0.08)
+             : StopRule(minTrials: P.minTrials, maxTrials: P.maxTrials, targetSD: P.acuityTargetSd)
+    }
 
     static func contrastStop(demo: Bool) -> StopRule {
-        demo ? StopRule(minTrials: 8, maxTrials: 14, targetSD: 0.12, categoryBoundaries: [1.5])
-             : StopRule(minTrials: 10, maxTrials: 30, targetSD: 0.08, categoryBoundaries: contrastBoundaries)
+        demo ? StopRule(minTrials: 8, maxTrials: 14, targetSD: 0.12)
+             : StopRule(minTrials: P.minTrials, maxTrials: P.maxTrials, targetSD: P.contrastTargetSd)
+    }
+
+    /// Affidabilità MVP: reliable se q97,5 − q2,5 ≤ W, altrimenti doubtful con flag wideInterval.
+    static func reliability(_ q: QuestPlus) -> (ContractReliability, [String]) {
+        var flags: [String] = []
+        let width = q.ci95.upperBound - q.ci95.lowerBound
+        let rel: ContractReliability = width <= P.reliabilityMaxCiWidth ? .reliable : .doubtful
+        if rel == .doubtful { flags.append("wideInterval") }
+        if q.trials.count >= P.maxTrials && q.thresholdSD >= (q.thresholds.first! < -1 ? P.contrastTargetSd : P.acuityTargetSd) {
+            flags.append("maxTrialsReached")
+        }
+        return (rel, flags)
     }
 }

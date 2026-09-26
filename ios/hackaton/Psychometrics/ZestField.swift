@@ -184,28 +184,27 @@ nonisolated struct FieldSession: Sendable {
 
         // Classificazione. "Oltre quanto atteso per caso": più dell'8% dei punti (o più di 1).
         let allowed = max(1, Int((0.08 * Double(tested.count)).rounded()))
+        // Pattern del contratto: none / peripheral / tunnel / scattered (una perdita centrale è "scattered";
+        // il coinvolgimento centrale si descrive con l'Amsler).
         let pattern: FieldPattern
-        let centralDefects = defects.filter { hypot($0.x, $0.y) <= 5 }
         if defects.count <= allowed {
-            pattern = .nessuna
-        } else if centralDefects.count >= 2 {
-            pattern = .centrale
+            pattern = .none
         } else if radius < 20, Double(defects.filter { hypot($0.x, $0.y) > radius }.count) >= 0.6 * Double(tested.filter { hypot($0.x, $0.y) > radius }.count) {
             pattern = .tunnel
         } else if defects.allSatisfy({ hypot($0.x, $0.y) > 12 }) {
-            pattern = .periferica
+            pattern = .peripheral
         } else {
-            pattern = .sparse
+            pattern = .scattered
         }
 
         let fl = blindSpotCatches > 0 ? Double(blindSpotSeen) / Double(blindSpotCatches) : 0
         let fp = (fpCatches + fastTaps) > 0 ? Double(fpTapped + fastTaps) / Double(fpCatches + fastTaps) : 0
         let fn = fnCatches > 0 ? Double(fnMissed) / Double(fnCatches) : 0
         // Criteri Humphrey: perdite di fissazione > 20% o falsi positivi > 15% → non affidabile.
-        let rel: Reliability = (fl > 0.2 || fp > 0.15) ? .nonAffidabile : (fn > 0.33 || !blindSpotFound ? .dubbio : .affidabile)
+        let rel: ContractReliability = (fl > 0.2 || fp > 0.15) ? .unreliable : (fn > 0.33 || !blindSpotFound ? .doubtful : .reliable)
 
-        return FieldEye(points: fieldPoints, fieldRadiusDeg: pattern == .nessuna ? maxEcc : radius, meanDefect: md,
-                        pattern: pattern, fixationLossRate: fl, falsePositiveRate: fp, falseNegativeRate: fn,
+        return FieldEye(fieldRadiusDeg: pattern == .none ? maxEcc : radius, pattern: pattern, points: fieldPoints,
+                        meanDefect: md, fixationLossRate: fl, falsePositiveRate: fp, falseNegativeRate: fn,
                         reliability: rel, blindSpot: [blindSpot.x, blindSpot.y])
     }
 }

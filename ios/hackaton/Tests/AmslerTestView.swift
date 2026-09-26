@@ -3,19 +3,19 @@ import SwiftUI
 /// Griglia di Amsler (SPEC 5.4): un occhio alla volta, ogni quadretto = 1 grado alla distanza misurata,
 /// 10 × 10 quadretti = i 10 gradi centrali. Due passaggi: linee storte, poi linee mancanti o sfocate.
 struct AmslerTestView: View {
-    var onFinish: (AmslerResult) -> Void
+    var onFinish: (AmslerBlock) -> Void
     var onQuit: () -> Void
 
     enum Pass { case distorted, missing }
     @State private var eye: FieldSession.Eye = .right
     @State private var pass: Pass = .distorted
     @State private var cells = Array(repeating: Array(repeating: 0, count: 10), count: 10)
-    @State private var result = AmslerResult()
+    @State private var result = AmslerBlock(source: .measured)
     /// Lato del quadretto fissato all'inizio di ogni occhio (1° alla distanza di quel momento).
     @State private var cellPt: CGFloat = 20
     private var tracker = FaceDistanceTracker.shared
 
-    init(onFinish: @escaping (AmslerResult) -> Void, onQuit: @escaping () -> Void) {
+    init(onFinish: @escaping (AmslerBlock) -> Void, onQuit: @escaping () -> Void) {
         self.onFinish = onFinish
         self.onQuit = onQuit
     }
@@ -123,9 +123,7 @@ struct AmslerTestView: View {
             sx += x; sy += y; n += 1
             if (4...5).contains(r) && (4...5).contains(c) { central = true }   // i 2° centrali
         } }
-        let cx = n > 0 ? sx / n : 0, cy = n > 0 ? sy / n : 0
-        return AmslerEye(cells: cells, distortedAreaDeg2: distorted, missingAreaDeg2: missing, centralInvolved: central,
-                         centroidDistanceDeg: n > 0 ? hypot(cx, cy) : nil,
-                         centroidDirectionDeg: n > 0 ? atan2(cy, cx) * 180 / .pi : nil)
+        _ = (sx, sy, n)
+        return AmslerEye(distortedAreaDeg2: distorted, missingAreaDeg2: missing, centralInvolved: central, cells: cells)
     }
 }

@@ -46,7 +46,7 @@ final class FieldTestRunner {
 
     // MARK: Geometria
 
-    private var ptPerMM: Double { DeviceDisplay.ppi / 25.4 / DeviceDisplay.nativeScale }
+    private var ptPerMM: Double { (DeviceDisplay.ppi ?? 460) / 25.4 / DeviceDisplay.nativeScale }
 
     /// Angolo → punti sullo schermo alla distanza attuale (tangente: angoli fino a ~30°).
     private func offsetPt(_ deg: Double) -> CGFloat {
@@ -180,18 +180,18 @@ final class FieldTestRunner {
         while paused, !Task.isCancelled { try? await Task.sleep(for: .milliseconds(200)) }
     }
 
-    var fieldResult: VisualFieldResult {
-        VisualFieldResult(right: results[.right], left: results[.left], isPreset: false)
+    var fieldResult: VisualFieldBlock {
+        VisualFieldBlock(source: .measured, right: results[.right], left: results[.left])
     }
 }
 
 struct FieldTestView: View {
     @State private var runner: FieldTestRunner
-    var onFinish: (VisualFieldResult) -> Void
+    var onFinish: (VisualFieldBlock) -> Void
     var onQuit: () -> Void
     private var tracker = FaceDistanceTracker.shared
 
-    init(demo: Bool, onFinish: @escaping (VisualFieldResult) -> Void, onQuit: @escaping () -> Void) {
+    init(demo: Bool, onFinish: @escaping (VisualFieldBlock) -> Void, onQuit: @escaping () -> Void) {
         _runner = State(initialValue: FieldTestRunner(demo: demo))
         self.onFinish = onFinish
         self.onQuit = onQuit

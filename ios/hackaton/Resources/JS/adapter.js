@@ -1,6 +1,7 @@
 /*
  * adapter.js — IpoView
- * Applica un AdaptationPlan (vedi docs/adaptation-plan-contract.md) alla pagina corrente.
+ * Applica un AdaptationPlan alla pagina corrente. Contratto normativo:
+ * docs/data-contracts.md sezioni 7 e 9 (riassunto in ios/docs/adaptation-plan-contract.md).
  * Iniettato da Swift come WKUserScript (documentEnd, main frame), dopo Readability.js
  * e Readability-readerable.js. Vanilla ES2020, nessuna dipendenza.
  *
@@ -16,7 +17,7 @@
     applied: false,
     plan: null,
     pendingFontPx: null,  // impostato con setFontSizePx prima di apply
-    inline: new Map(),    // Element -> Map(prop -> [valore, priorità]) originali
+    inline: new Map(),    // Element -> testo originale dell'attributo style (null = assente)
     classes: [],          // [Element, classe] aggiunte da noi
     attrs: [],            // [Element, attributo, valore originale] rimossi/cambiati
     added: [],            // nodi inseriti da noi
@@ -32,6 +33,12 @@
   const WHITE = { r: 255, g: 255, b: 255, a: 1 };
   const BLACK = { r: 0, g: 0, b: 0, a: 1 };
   const DARK = { r: 18, g: 18, b: 18, a: 1 };   // #121212
+  const DARK_TEXT = { r: 232, g: 230, b: 227, a: 1 };  // #E8E6E3
+  const INK = { r: 26, g: 26, b: 26, a: 1 };    // #1A1A1A
+  const WARM_WHITE = { r: 255, g: 253, b: 247, a: 1 };  // tema chiaro: provvisorio finché Rocco non sceglie
+  // Alias dei vecchi valori italiani → valori del contratto
+  const THEME_ALIAS = { originale: 'original', chiaro: 'light', scuro: 'dark' };
+  const MODE_ALIAS = { normale: 'normal', paragrafo: 'paragraph', 'lettura-grande': 'large-reading' };
   const MID_LUM = 0.179;  // luminanza in cui nero e bianco danno lo stesso contrasto
 
   const COOKIE_RE = /cookie|consent|gdpr|popup|pop-up|modal|newsletter|overlay|iubenda|onetrust|didomi|quantcast|cmp-|paywall|lightbox|backdrop|interstitial/i;
@@ -48,6 +55,7 @@
     'iframe[src*="googlesyndication"]', 'ins.adsbygoogle', '[class*="sponsor" i]', '[id*="sponsor" i]',
   ].join(',');
   // Elementi di testo a cui applicare dimensione e font
+  const TEXT_TAGS_BASE = 'p,li,td,th,dd,dt,span,a,label,input,select,textarea,button,blockquote,figcaption,h1,h2,h3,h4,h5,h6';
   const TEXT_TAGS = 'p,li,td,th,dd,dt,span,a,label,input,select,textarea,button,blockquote,figcaption,div.ipo-t,h1,h2,h3,h4,h5,h6';
   // Non toccare il font delle icone (icon font)
   const NOT_ICON = ':not([class*="icon" i]):not([class^="fa"]):not([class*=" fa-"]):not([class*="material" i]):not([aria-hidden="true"])';
@@ -71,9 +79,8 @@
 
   function setStyle(el, prop, value, prio = 'important') {
     if (!el || !el.style) return;
-    let saved = S.inline.get(el);
-    if (!saved) { saved = new Map(); S.inline.set(el, saved); }
-    if (!saved.has(prop)) saved.set(prop, [el.style.getPropertyValue(prop), el.style.getPropertyPriority(prop)]);
+    // Si salva il testo esatto dell'attributo: il CSSOM lo riscriverebbe ("a:1px" → "a: 1px")
+    if (!S.inline.has(el)) S.inline.set(el, el.getAttribute('style'));
     el.style.setProperty(prop, value, prio);
   }
   function addClass(el, cls) {
@@ -82,6 +89,11 @@
   function hide(el) { addClass(el, 'ipo-hide'); }
   function removeAttr(el, name) {
     if (el.hasAttribute(name)) { S.attrs.push([el, name, el.getAttribute(name)]); el.removeAttribute(name); }
+  }
+  // Imposta un attributo ricordando il valore originale (null = assente)
+  function setAttr(el, name, value) {
+    S.attrs.push([el, name, el.hasAttribute(name) ? el.getAttribute(name) : null]);
+    el.setAttribute(name, value);
   }
   function track(node) { S.added.push(node); return node; }
   function listen(target, ev, fn, opts) { target.addEventListener(ev, fn, opts); S.listeners.push([target, ev, fn, opts]); }
@@ -137,9 +149,11 @@
     return c;
   }
   function hexToColor(hex, fallback) {
-    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (hex == null) return fallback;   // null nel tema "original"
+    const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex).trim());
     if (!m) return fallback;
-    const v = parseInt(m[1], 16);
+    const h = m[1].length === 3 ? m[1].replace(/./g, '$&$&') : m[1];
+    const v = parseInt(h, 16);
     return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255, a: 1 };
   }
   function cssColor(c) { return `rgb(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)})`; }
@@ -198,15 +212,18 @@
   // ---------------------------------------------------------------------------
   // CSS generato dal piano
   // ---------------------------------------------------------------------------
+  // Colori dei nostri elementi (overlay paragrafo, pulsante Menù) e del tema.
+  // "original": colori del sito, background/text null → overlay bianco con testo #1A1A1A.
   function themeColors(plan) {
     const c = plan.color || {};
-    const theme = c.theme || 'originale';
-    const dark = theme === 'scuro';
-    const bg = hexToColor(c.background, dark ? DARK : { r: 255, g: 253, b: 247, a: 1 });
-    const fg = hexToColor(c.text, dark ? { r: 232, g: 230, b: 227, a: 1 } : { r: 26, g: 26, b: 26, a: 1 });
+    const theme = c.theme;
+    let bg, fg;
+    if (theme === 'dark') { bg = hexToColor(c.background, DARK); fg = hexToColor(c.text, DARK_TEXT); }
+    else if (theme === 'light') { bg = hexToColor(c.background, WARM_WHITE); fg = hexToColor(c.text, INK); }
+    else { bg = WHITE; fg = INK; }
     const bgIsDark = lum(bg) <= MID_LUM;
     return {
-      theme, bg, fg, bgIsDark,
+      theme, bg, fg, bgIsDark, themed: theme === 'dark' || theme === 'light',
       link: bgIsDark ? '#8AB4F8' : '#0B4FA8',
       control: bgIsDark ? '#2A2A2A' : '#EFEBE0',
       focus: bgIsDark ? '#FFB000' : '#0047AB',
@@ -218,11 +235,16 @@
     const tc = themeColors(plan);
     const family = String(t.fontFamily || 'Atkinson Hyperlegible').replace(/"/g, '');
     const fam = `"${family}", "Atkinson Hyperlegible", -apple-system, "Helvetica Neue", sans-serif`;
-    const px = num(t.fontSizePx, 20);
+    // R1: fontSizeCssPx è la dimensione MINIMA del corpo (CSS px alla distanza di riferimento;
+    // Swift la riscala per d/400 con setFontSizePx). Vecchia chiave fontSizePx solo come ripiego.
+    const px = num(t.fontSizeCssPx, num(t.fontSizePx, 20));
     const lh = num(t.lineHeight, 1.5), ls = num(t.letterSpacingEm, 0.12), ws = num(t.wordSpacingEm, 0.16);
     const ps = num(t.paragraphSpacingEm, 2);
     const align = t.align === 'right' ? 'right' : 'left';   // mai giustificato
-    const W = num(l.maxLineWidthPx, 600);
+    // R2: lunghezza della riga in caratteri (ch del font Atkinson), mai oltre lo schermo
+    const N = Math.max(10, num(l.maxLineWidthCh, 60));
+    const W = `min(${N}ch, 100%)`;
+    const WRAP = 'overflow-wrap:break-word!important;word-break:normal!important;hyphens:auto!important;-webkit-hyphens:auto!important;';
     const target = num(k.minTargetPt, 44), outline = num(k.focusOutlinePx, 3);
     const BG = cssColor(tc.bg), FG = cssColor(tc.fg);
     const out = [];
@@ -234,27 +256,35 @@
     out.push(`:root{--ipo-font:${px}px;}`);
     out.push(`.ipo-hide{display:none!important;}`);
 
-    // R1/R2: dimensione, font, spaziatura
-    out.push(`body{font-size:var(--ipo-font)!important;}`);
+    // R1/R2: dimensione, font, spaziatura.
+    // Minimo, non valore fisso: max(--ipo-font, dimensione originale). --ipo-orig è la
+    // dimensione calcolata registrata in linea prima di applicare il foglio (recordOrigSizes).
+    const MIN = (k) => `max(${k === 1 ? 'var(--ipo-font)' : `calc(var(--ipo-font) * ${k})`}, var(--ipo-orig, 0px))`;
+    out.push(`body{font-size:${MIN(1)}!important;}`);
     // :where = specificità zero, così h1-h6 e i figli dei titoli possono sovrascrivere
-    out.push(`:where(${TEXT_TAGS}){font-size:var(--ipo-font)!important;transition:font-size 150ms ease-out!important;}`);
-    out.push(`h1{font-size:calc(var(--ipo-font) * 1.6)!important;}h2{font-size:calc(var(--ipo-font) * 1.4)!important;}h3{font-size:calc(var(--ipo-font) * 1.2)!important;}h4,h5,h6{font-size:calc(var(--ipo-font) * 1.1)!important;}`);
+    out.push(`:where(${TEXT_TAGS}){font-size:${MIN(1)}!important;transition:font-size 150ms ease-out!important;}`);
+    out.push(`h1{font-size:${MIN(1.6)}!important;}h2{font-size:${MIN(1.4)}!important;}h3{font-size:${MIN(1.2)}!important;}h4,h5,h6{font-size:${MIN(1.1)}!important;}`);
     out.push(`:is(h1,h2,h3,h4,h5,h6) :is(span,a,label,div,small,strong,em,b,i){font-size:inherit!important;}`);
     out.push(`:is(body,${TEXT_TAGS})${NOT_ICON}{font-family:${fam}!important;}`);
     out.push(`:is(body,${TEXT_TAGS}){line-height:${lh}!important;letter-spacing:${ls}em!important;word-spacing:${ws}em!important;}`);
     out.push(`:is(body,p,li,dd,dt,td,th,blockquote,figcaption,div.ipo-t,h1,h2,h3,h4,h5,h6){text-align:${align}!important;}`);
     out.push(`p,blockquote{margin-bottom:${ps}em!important;}`);
+    // Parole lunghe spezzate (mai break-all): il testo non esce mai di lato
+    out.push(`:is(body,${TEXT_TAGS}){${WRAP}}`);
 
     // Layout a una colonna
     if (S.reader) {
       out.push(`body{display:block!important;margin:0!important;padding:0!important;max-width:none!important;}`);
-      out.push(`#ipoview-reader{display:block!important;max-width:${W}px!important;margin:0 auto!important;padding:12px!important;box-sizing:border-box!important;overflow-wrap:break-word;}`);
+      out.push(`#ipoview-reader{display:block!important;max-width:min(calc(${N}ch + 24px), 100%)!important;margin:0 auto!important;padding:12px!important;box-sizing:border-box!important;font-family:${fam}!important;${WRAP}}`);
+      out.push(`#ipoview-reader :is(p,li,dd,dt,blockquote,figcaption,h1,h2,h3,h4,h5,h6,div.ipo-t){max-width:${W}!important;}`);
       out.push(`#ipoview-reader img,#ipoview-reader video,#ipoview-reader figure{max-width:100%!important;height:auto!important;}`);
       out.push(`#ipoview-reader table{display:block!important;overflow-x:auto!important;max-width:100%!important;}`);
-    } else if (l.singleColumn) {
+    } else if (l.singleColumn !== false) {
+      // Una colonna (sempre quando il piano è attivo)
       out.push(`html,body{overflow-x:hidden!important;}`);
-      out.push(`body{display:block!important;max-width:${W}px!important;margin:0 auto!important;padding:12px!important;box-sizing:border-box!important;overflow-wrap:break-word;}`);
+      out.push(`body{display:block!important;max-width:min(calc(${N}ch + 24px), 100%)!important;margin:0 auto!important;padding:12px!important;box-sizing:border-box!important;${WRAP}}`);
       out.push(`body *{float:none!important;max-width:100%!important;box-sizing:border-box!important;}`);
+      out.push(`body :is(p,li,dd,dt,blockquote,figcaption,h1,h2,h3,h4,h5,h6,div.ipo-t){max-width:${W}!important;}`);
       out.push(`body *:not(img):not(svg):not(svg *):not(video):not(canvas):not(iframe):not(input):not(select):not(button):not(picture){width:auto!important;min-width:0!important;}`);
       out.push(`.ipo-flexcol{flex-direction:column!important;flex-wrap:wrap!important;}.ipo-grid{display:block!important;}`);
       out.push(`img,video,picture,canvas,iframe{max-width:100%!important;height:auto!important;}`);
@@ -270,13 +300,14 @@
     if (l.moveEdgeElements || cl.removeCookieBanners) out.push(`html,body{overflow-y:auto!important;height:auto!important;}`);
 
     // R3/R4: tema
-    if (tc.theme === 'scuro' || tc.theme === 'chiaro') {
+    if (tc.themed) {
       out.push(`html,body{background:${BG}!important;color:${FG}!important;}`);
       out.push(`body *{color:${FG}!important;border-color:${tc.bgIsDark ? '#555' : '#999'};}`);
       out.push(`a,a *{color:${tc.link}!important;}`);
     }
     const bright = num(c.imageBrightness, 1);
-    if (bright !== 1) out.push(`img,video,picture,canvas{filter:brightness(${bright})!important;}`);
+    // Solo immagini (l'img dentro <picture> è già coperta: niente doppio filtro)
+    if (bright !== 1) out.push(`img,video,svg image{filter:brightness(${bright})!important;}`);
 
     // R6: niente animazioni (resta solo la nostra transizione della dimensione)
     if (cl.stopAnimations) out.push(`*,*::before,*::after{animation:none!important;transition-property:font-size!important;scroll-behavior:auto!important;}`);
@@ -380,9 +411,9 @@
     if (!root) return;
     const l = plan.layout || {}, cl = plan.cleanup || {};
     const edges = !S.reader && (l.moveEdgeElements || cl.removeCookieBanners);
-    const single = !S.reader && l.singleColumn;
+    const single = !S.reader && l.singleColumn !== false;
     const tc = themeColors(plan);
-    const themed = tc.theme === 'scuro' || tc.theme === 'chiaro';
+    const themed = tc.themed;
     const BG = cssColor(tc.bg);
     for (const el of collect(root, 8000)) {
       if (el.nodeType !== 1 || SKIP_TAGS.has(el.tagName) || isUI(el)) continue;
@@ -398,6 +429,28 @@
         setStyle(el, 'background-color', /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) ? tc.control : BG);
       }
       if (el.tagName === 'DIV' && hasDirectText(el)) addClass(el, 'ipo-t');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // R1: registra la dimensione originale (px calcolati) di ogni elemento di testo,
+  // PRIMA di iniettare il foglio: il foglio userà max(--ipo-font, --ipo-orig), così
+  // il testo già più grande del minimo non viene mai rimpicciolito.
+  // ---------------------------------------------------------------------------
+  function recordOrigSizes(root) {
+    if (!root) return;
+    const list = [root];
+    if (root.querySelectorAll) {
+      const all = root.querySelectorAll(TEXT_TAGS_BASE + ',div');
+      for (let i = 0; i < all.length && list.length < 20000; i++) list.push(all[i]);
+    }
+    for (const el of list) {
+      if (el.nodeType !== 1 || isUI(el) || !el.style) continue;
+      if (el.tagName === 'DIV' && !hasDirectText(el)) continue;
+      if (el.style.getPropertyValue('--ipo-orig')) continue;
+      let fs; try { fs = getComputedStyle(el).fontSize; } catch (e) { continue; }
+      const v = parseFloat(fs);
+      if (/px$/.test(fs || '') && Number.isFinite(v) && v > 0) setStyle(el, '--ipo-orig', v + 'px', '');
     }
   }
 
@@ -462,7 +515,7 @@
       if (info.image) {
         // Testo sopra un'immagine: fondo pieno dietro al testo
         let nb;
-        if (tc.theme === 'originale') nb = ratio(blend(fgRaw, WHITE), WHITE) >= ratio(blend(fgRaw, DARK), DARK) ? WHITE : DARK;
+        if (!tc.themed) nb = ratio(blend(fgRaw, WHITE), WHITE) >= ratio(blend(fgRaw, DARK), DARK) ? WHITE : DARK;
         else nb = tc.bg;
         setStyle(el, 'background-color', cssColor(nb));
         setStyle(el, 'padding', '0.1em 0.25em');
@@ -521,7 +574,8 @@
   }
 
   // ---------------------------------------------------------------------------
-  // R5/R9: un paragrafo alla volta
+  // Estensioni post-MVP: "paragraph" (R5, un paragrafo per schermata) e
+  // "large-reading" (R9, un paragrafo alla volta, tocco = ascolto). Nell'MVP mode = "normal".
   // ---------------------------------------------------------------------------
   const BLOCK_SEL = 'h1,h2,h3,h4,p,li,dd,blockquote,tr';
   const INNER_BLOCK_SEL = 'h1,h2,h3,h4,p,li,dd,blockquote,table';
@@ -570,12 +624,14 @@
 
   function buildParagraphMode(plan) {
     const mode = plan.layout && plan.layout.mode;
-    if ((mode !== 'paragrafo' && mode !== 'lettura-grande') || !document.body) return;
+    if ((mode !== 'paragraph' && mode !== 'large-reading') || !document.body) return;
     const items = collectParagraphs();
     // Meno di 2 blocchi: niente overlay, resta la pagina adattata normale
     if (items.length < 2) { log('modalità paragrafo: blocchi insufficienti (' + items.length + '), layout normale'); return; }
-    const speak = mode === 'lettura-grande' || !!(plan.speech && plan.speech.tapToSpeak);
-    const rate = num(plan.speech && plan.speech.rateWpm, 160);
+    const speak = mode === 'large-reading' || !!(plan.speech && plan.speech.tapToSpeak);
+    // rateWpm può essere null: in quel caso si manda null e Swift sceglie il default
+    const rw = plan.speech ? plan.speech.rateWpm : null;
+    const rate = rw != null && Number.isFinite(Number(rw)) && Number(rw) > 0 ? Number(rw) : null;
 
     const ov = document.createElement('div');
     ov.id = 'ipoview-paragraph'; ov.setAttribute('data-ipoview', 'ui');
@@ -669,15 +725,27 @@
     if (!plan || typeof plan !== 'object') { log('piano mancante'); return; }
     if (S.applied) reset();
 
+    // Copia normalizzata: alias italiani → valori del contratto, null tollerati
+    plan = JSON.parse(JSON.stringify(plan));
+    plan.text = plan.text || {}; plan.layout = plan.layout || {}; plan.color = plan.color || {};
+    const th = plan.color.theme;
+    plan.color.theme = THEME_ALIAS[th] || (th === 'light' || th === 'dark' ? th : 'original');
+    const md = plan.layout.mode;
+    plan.layout.mode = MODE_ALIAS[md] || (md === 'paragraph' || md === 'large-reading' ? md : 'normal');
+    // screen.brightness è gestito in Swift: qui si ignora
     // Dimensione impostata prima di apply: ha la precedenza (poi si consuma)
-    if (S.pendingFontPx != null) { plan = JSON.parse(JSON.stringify(plan)); plan.text = plan.text || {}; plan.text.fontSizePx = S.pendingFontPx; S.pendingFontPx = null; }
+    if (S.pendingFontPx != null) { plan.text.fontSizeCssPx = S.pendingFontPx; S.pendingFontPx = null; }
     S.plan = plan; S.applied = true;
-    const cl = plan.cleanup || {}, l = plan.layout || {};
+    const cl = plan.cleanup || {}, l = plan.layout;
     const body = document.body;
 
+    // Viewport 1:1 PRIMA di tutto (ADR 0003): 1 CSS px = 1 punto iOS
     step('viewport', forceViewport);
+    // hyphens:auto richiede una lingua: se manca, italiano
+    step('lang', () => { if (!document.documentElement.getAttribute('lang')) setAttr(document.documentElement, 'lang', 'it'); });
     S.reader = !!step('readability', () => tryReader(plan));
     const ruleMode = !S.reader;
+    if (body) step('origSizes', () => recordOrigSizes(body));
     step('style', () => injectStyle(buildCSS(plan, ruleMode)));
     if (body) {
       if (cl.stopAnimations) step('stopMedia', () => stopMedia(body));
@@ -685,7 +753,7 @@
         step('cookies', () => hideCookies(body));
         step('unlockScroll', unlockScroll);
       }
-      if (ruleMode && l.singleColumn) step('menu', buildMenu);
+      if (ruleMode && l.singleColumn !== false) step('menu', buildMenu);
       const root = S.reader ? document.getElementById('ipoview-reader') : body;
       step('scan', () => scanElements(root, plan));
       step('contrast', () => contrastPass(root, plan));
@@ -716,14 +784,12 @@
         if (el.getAttribute('class') === '') el.removeAttribute('class');
       }
       S.classes = [];
-      S.inline.forEach((props, el) => {
-        props.forEach(([val, prio], prop) => {
-          if (val) el.style.setProperty(prop, val, prio); else el.style.removeProperty(prop);
-        });
-        if (el.getAttribute('style') === '') el.removeAttribute('style');
+      S.inline.forEach((orig, el) => {
+        if (orig == null) el.removeAttribute('style'); else el.setAttribute('style', orig);
       });
       S.inline = new Map();
-      for (const [el, name, val] of S.attrs) el.setAttribute(name, val);
+      // In ordine inverso, così più modifiche allo stesso attributo tornano all'originale
+      for (const [el, name, val] of S.attrs.reverse()) { if (val == null) el.removeAttribute(name); else el.setAttribute(name, val); }
       S.attrs = [];
       if (S.viewport) {
         const v = S.viewport;

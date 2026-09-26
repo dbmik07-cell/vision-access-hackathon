@@ -3,11 +3,11 @@
 Ultimo aggiornamento: fasi 1–8 complete (tutto l'MVP e la roadmap), installate sull'iPhone 15. Installazione rapida: `./install.sh`.
 
 ## Come compilare e installare
+Il progetto vive in `ios/` del repository `vision-access-hackathon` (branch `rocco/ios-app`).
 ```
-xcodebuild -project hackaton.xcodeproj -scheme hackaton -destination 'generic/platform=iOS' -derivedDataPath /tmp/ipodd build
-xcrun devicectl device install app --device 00008120-001825461A90A01E /tmp/ipodd/Build/Products/Debug-iphoneos/hackaton.app
+cd ios && ./install.sh        # compila, installa e avvia sull'iPhone collegato
+xcodebuild test -project hackaton.xcodeproj -scheme hackaton -destination 'id=375CC539-598A-48D4-A751-5B9A6099D0A8'
 ```
-Test unitari (simulatore): `xcodebuild test -project hackaton.xcodeproj -scheme hackaton -destination 'id=375CC539-598A-48D4-A751-5B9A6099D0A8'` → 13 test OK.
 
 ## Fase 1: base ✅
 - ARKit face tracking a ~60 Hz, distanza occhi–fotocamera con filtro esponenziale (τ 0,15 s) — `Core/FaceDistanceTracker.swift`
@@ -65,8 +65,21 @@ Test unitari (simulatore): `xcodebuild test -project hackaton.xcodeproj -scheme 
 ## Modalità demo (~3 minuti)
 Impostazioni → tocca 5 volte la riga della versione → "Test accorciati". Passi: acuità, contrasto, lettura (6 frasi), luce. Il campo visivo si mostra scegliendo un profilo predefinito.
 
+## Correzioni dai test sul telefono ✅
+- Stop al limite dello schermo (3 giuste di fila alla E più piccola o al contrasto più basso) → "oltre il limite misurabile"; 3 mancate allo stimolo più grande → "sotto il limite misurabile", adattamento al massimo.
+- Tocco con due dita = "non vedo" (risposta sbagliata, "ok, passiamo alla prossima"); frase sull'indovinare detta all'inizio di acuità e contrasto.
+- Indicatore di avanzamento grande in acuità, contrasto, lettura, Amsler e campo visivo.
+- Preset verificati nel simulatore: macchia centrale (interlinea 2, spaziature larghe), tunnel 5° (un paragrafo alla volta con le estensioni post-MVP; righe di 15 caratteri senza).
+
+## Allineamento al contratto dati v1.0 ✅
+- `hackaton/Contract/ContractParameters.swift` (tutti i numeri, da sostituire con shared/parameters.json).
+- QUEST+ sezione 5 (facilità, mediana, quantili a bin, spareggio, W = 0,30), fascia 35–45 cm, censura, lettera del contrasto fino a 8°.
+- VisualProfile e AdaptationPlan con i nomi delle sezioni 8 e 9, R0–R8, fontSizeCssPx a 400 mm × d/400, righe in ch, tema original, tema chiaro #FAF7F0.
+- adapter.js sul nuovo piano (font minimo con max(), viewport forzato, ch, temi original/light/dark, null).
+- Nessun caso golden in shared/examples/ per ora.
+
 ## Limiti noti
-- R1 della SPEC (lato prudente + 0,4 + 0,1) produce testo molto grande con acuità ridotta → spesso scatta la lettura grande (R9). Si corregge con "Testo più piccolo" (R10).
+- R1 del contratto (limite prudente + 0,4) con acuità ridotta dà comunque testo grande (≈ 47 pt a 40 cm per 0,42 logMAR): con le estensioni post-MVP scatta la lettura grande (R9). Si riduce con "Testo più piccolo" (R10) o disattivando le estensioni.
 - Il riconoscimento vocale soffre il rumore: la demo va fatta in un posto tranquillo, oppure si usa il tocco.
 - Le prove trappola della macchia cieca ci sono solo nella sessione del quadrante che la contiene.
 - Non provato da me sul telefono reale: solo compilazione, test unitari e simulatore.

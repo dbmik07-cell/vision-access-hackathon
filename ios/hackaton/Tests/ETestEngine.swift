@@ -57,7 +57,7 @@ enum ScreenCensor: String, Codable {
 enum ETestKind: Equatable {
     case acuity
     /// Contrasto con lettera di dimensione fissa (in logMAR).
-    case contrast(letterLogMAR: Double)
+    case contrast(letterArcmin: Double)
 }
 
 /// Motore comune ad acuità e contrasto: stessa E, stesso gesto, QUEST+ sotto.
@@ -72,6 +72,9 @@ final class ETestEngine {
     private(set) var censor: ScreenCensor = .none
     /// Risposte giuste consecutive allo stimolo più difficile disegnabile.
     @ObservationIgnored private var hardLimitStreak = 0
+    /// Contratto: displayLimitLogMAR = il più piccolo stimolo ammissibile durante il test (acuità);
+    /// per il contrasto il log10(C) più basso ammissibile (→ ceilingLogCS = −valore).
+    private(set) var displayLimit: Double?
     /// Volte in cui lo stimolo più facile non è stato visto.
     @ObservationIgnored private var easyLimitMisses = 0
     /// Pausa automatica (distanza fuori 25–60 cm) o chiesta dalla persona.
@@ -96,35 +99,42 @@ final class ETestEngine {
     }
 
     var trialCount: Int { quest.trials.count }
-    var estimate: Double { quest.thresholdMean }
-    var ci95: ClosedRange<Double> { quest.ci95 }
+    /// Stima pubblicata (mediana) nella scala del risultato: logMAR, oppure logCS = −t per il contrasto.
+    var estimate: Double { kind == .acuity ? quest.thresholdMedian : -quest.thresholdMedian }
+    var ci95: ClosedRange<Double> {
+        let c = quest.ci95
+        return kind == .acuity ? c : (-c.upperBound)...(-c.lowerBound)
+    }
     var sd: Double { quest.thresholdSD }
 
     // MARK: Stimoli possibili adesso
 
+    /// Lettera interamente nello schermo: lato corto in pixel del dispositivo (con un piccolo margine).
     private var maxLetterPx: Double {
-        Double(DeviceDisplay.screenSizePt.width) * DeviceDisplay.nativeScale * 0.8
+        Double(DeviceDisplay.screenSizePt.width) * DeviceDisplay.nativeScale * 0.95
     }
 
     /// Acuità: dimensioni ricalcolate alla distanza attuale.
     /// Vincoli: tratto della E di almeno 2 pixel, lettera interamente nello schermo.
     private func acuityCandidates(distanceMM: Double) -> [Double] {
-        let all = QuestPlus.grid(from: -0.3, to: 1.8, step: 0.02)
+        // Stessa griglia di t, filtrata: tratto ≥ 2 px del dispositivo e lettera nello schermo.
+        let all = quest.thresholds
         let ok = all.filter {
             let h = VisualAngle.letterHeightPx(logMAR: $0, distanceMM: distanceMM)
-            return h / 5 >= 2 && h <= maxLetterPx
+            return h / 5 >= ContractParameters.minStrokeDevicePx && h <= maxLetterPx
         }
         if !ok.isEmpty { return ok }
         return [VisualAngle.logMAR(letterHeightPx: maxLetterPx, distanceMM: distanceMM)]
     }
 
-    /// Contrasto: tutti i grigi a 8 bit mostrabili, convertiti in log(1/C) di luminanza fisica.
+    /// Contrasto: i grigi a 8 bit mostrabili davvero (senza dithering), come x = log10(C di Weber)
+    /// sulla luminanza fisica, in ordine crescente e dentro la griglia [−2,1, 0].
     static let contrastLevels: [(gray: Int, x: Double)] = {
         var levels: [(Int, Double)] = []
         var seen = Set<Int>()
         for v in 0...254 {
-            let c = SRGB.weberContrastOnWhite(gray: v)
-            let x = log10(1 / c)
+            let x = log10(SRGB.weberContrastOnWhite(gray: v))
+            guard x >= ContractParameters.contrastThresholdMin else { continue }
             let key = Int((x * 1000).rounded())
             if seen.insert(key).inserted { levels.append((v, x)) }
         }
@@ -142,6 +152,9 @@ final class ETestEngine {
 
     func start() { presentNext() }
 
+    /// Prove di controllo (affidabilità avanzata, post-MVP nel contratto): disattivate.
+    nonisolated static let catchTrialsEnabled = false
+
     /// Prove di controllo: la 5ª, 10ª, 15ª... (dopo le prime risposte).
     nonisolated static func isCatchTrial(_ completed: Int) -> Bool { completed >= 4 && (completed + 1) % 5 == 0 }
 
@@ -155,8 +168,8 @@ final class ETestEngine {
         // L'entropia attesa si calcola fuori dal thread principale.
         // Prova di controllo (SPEC 6, caso B): una lettera ogni 5 è facile, 0,4 unità sopra la stima.
         // Chi vede davvero non sbaglia queste; chi finge o è distratto sì.
-        let isCatch = Self.isCatchTrial(q.trials.count)
-        let easy = kind == .acuity ? q.thresholdMean + 0.4 : q.thresholdMean - 0.4
+        let isCatch = Self.catchTrialsEnabled && Self.isCatchTrial(q.trials.count)
+        let easy = q.thresholdMean + 0.4
         Task {
             let next = await Task.detached(priority: .userInitiated) {
                 isCatch ? cands.min { abs($0 - easy) < abs($1 - easy) } : q.nextStimulus(candidates: cands)
@@ -168,10 +181,10 @@ final class ETestEngine {
 
     private func show(target: Double, distanceMM: Double) {
         let cands = candidates(distanceMM: distanceMM)
-        // Limiti dello schermo: per l'acuità il più difficile è il logMAR più piccolo,
-        // per il contrasto il log(1/C) più alto.
-        let hardest = kind == .acuity ? cands.min() : cands.max()
-        let easiest = kind == .acuity ? cands.max() : cands.min()
+        // Limiti dello schermo: con la variabile di facilità il più difficile è sempre il valore più piccolo.
+        let hardest = cands.min()
+        let easiest = cands.max()
+        if let hardest { displayLimit = min(displayLimit ?? hardest, hardest) }
         let atHard = hardest.map { abs($0 - target) < 0.011 } ?? false
         let atEasy = easiest.map { abs($0 - target) < 0.011 } ?? false
         var direction = Direction.allCases.randomElement()!
@@ -182,8 +195,8 @@ final class ETestEngine {
             let h = min(maxLetterPx, VisualAngle.letterHeightPx(logMAR: target, distanceMM: distanceMM))
             current = EStimulus(target: target, heightPx: h, gray: 0, direction: direction, shownAt: .now,
                                 atHardLimit: atHard, atEasyLimit: atEasy)
-        case .contrast(let letterLogMAR):
-            let h = min(maxLetterPx, VisualAngle.letterHeightPx(logMAR: letterLogMAR, distanceMM: distanceMM))
+        case .contrast(let letterArcmin):
+            let h = min(maxLetterPx, VisualAngle.px(mm: VisualAngle.mm(arcmin: letterArcmin, distanceMM: distanceMM)))
             let gray = Self.contrastLevels.min { abs($0.x - target) < abs($1.x - target) }?.gray ?? 0
             current = EStimulus(target: target, heightPx: h, gray: gray, direction: direction, shownAt: .now,
                                 atHardLimit: atHard, atEasyLimit: atEasy)
@@ -210,13 +223,13 @@ final class ETestEngine {
             // logMAR effettivo: dimensione in pixel mostrata e distanza reale al momento della risposta.
             actual = VisualAngle.logMAR(letterHeightPx: stim.heightPx, distanceMM: distanceMM)
         case .contrast:
-            actual = log10(1 / SRGB.weberContrastOnWhite(gray: stim.gray))
+            actual = log10(SRGB.weberContrastOnWhite(gray: stim.gray))
         }
         let correct = answer == stim.direction
         quest.update(stimulus: actual, correct: correct)
         records.append(TrialRecord(stimulus: actual, correct: correct, distanceCM: distanceMM / 10,
                                    responseTimeMs: rt, shown: stim.direction.rawValue, answered: answer?.rawValue ?? "non-vedo",
-                                   estimateAfter: quest.thresholdMean, sdAfter: quest.thresholdSD))
+                                   estimateAfter: quest.thresholdMedian, sdAfter: quest.thresholdSD))
         current = nil
         Haptics.tick()
         // Limite dello schermo: 3 risposte giuste di fila allo stimolo più difficile → stop, oltre il limite.
@@ -255,14 +268,8 @@ final class ETestEngine {
     var progress: Double { finished ? 1 : min(1, Double(trialCount) / Double(stopRule.maxTrials)) }
 
     /// Stimolo più facile/difficile disegnabile adesso (per registrare i risultati censurati).
-    var hardLimitValue: Double {
-        let c = candidates(distanceMM: tracker.effectiveMM)
-        return (kind == .acuity ? c.min() : c.max()) ?? 0
-    }
-    var easyLimitValue: Double {
-        let c = candidates(distanceMM: tracker.effectiveMM)
-        return (kind == .acuity ? c.max() : c.min()) ?? 0
-    }
+    var hardLimitValue: Double { candidates(distanceMM: tracker.effectiveMM).min() ?? 0 }
+    var easyLimitValue: Double { candidates(distanceMM: tracker.effectiveMM).max() ?? 0 }
 
     var meanDistanceCM: Double {
         records.isEmpty ? tracker.effectiveCM : records.map(\.distanceCM).reduce(0, +) / Double(records.count)

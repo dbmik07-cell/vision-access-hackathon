@@ -1,52 +1,52 @@
 import Foundation
 
-/// Profili di campo visivo predefiniti per la demo: tunnel e perdita centrale.
-/// Generano una mappa di punti realistica, così la mappa di calore si può mostrare.
+/// Profili predefiniti per la demo (contratto: blocchi con source "preset").
 nonisolated enum PresetProfiles {
+    typealias P = ContractParameters
+
+    /// Profilo di partenza quando non c'è ancora nessun test: acuità e contrasto preset.
+    static func baseline(device: DeviceBlock) -> VisualProfile {
+        var p = VisualProfile(
+            device: device,
+            // Vista nella norma: così i preset di campo visivo e Amsler si vedono da soli.
+            acuity: AcuityBlock(source: .preset, logMAR: 0.0, ci95: [-0.1, 0.1], reliability: .reliable, flags: [],
+                                whoCategory: .none),
+            contrast: ContrastBlock(source: .preset, logCS: 1.8, ci95: [1.7, 1.9], reliability: .reliable, flags: [],
+                                    band: .normal))
+        ProfileBuilder.finalizeNonisolated(&p)
+        return p
+    }
+
     static func apply(_ preset: FieldPreset, to profile: inout VisualProfile) {
         switch preset {
         case .nessuno:
             return
         case .tunnel:
-            let eye = field(radius: 8) { x, y in hypot(x, y) <= 8 ? 8.5 : (hypot(x, y) <= 11 ? 3 : 0) }
-            var eyeT = eye
-            eyeT.fieldRadiusDeg = 8
-            eyeT.pattern = .tunnel
-            profile.visualField = VisualFieldResult(right: eyeT, left: eyeT, isPreset: true)
+            // Tunnel a 5° (contratto): punti visti solo entro 5°.
+            let r = P.tunnelPresetRadiusDeg
+            let eye = FieldEye(fieldRadiusDeg: r, pattern: .tunnel,
+                               points: grid { x, y in hypot(x, y) <= r ? 8.5 : (hypot(x, y) <= r + 3 ? 3 : 0) })
+            profile.visualField = VisualFieldBlock(source: .preset, right: eye, left: eye)
         case .centrale:
-            let eye = field(radius: 27) { x, y in
-                let r = hypot(x, y)
-                return r <= 4 ? 0 : (r <= 7 ? 4 : 9)
-            }
-            var eyeC = eye
-            eyeC.pattern = .centrale
-            profile.visualField = VisualFieldResult(right: eyeC, left: eyeC, isPreset: true)
-            // Amsler coerente: 4 × 4 celle centrali mancanti, bordo distorto.
+            // Perdita centrale: Amsler preset con coinvolgimento dei 2° centrali.
             var cells = Array(repeating: Array(repeating: 0, count: 10), count: 10)
-            for r in 2..<8 { for c in 2..<8 { cells[r][c] = 1 } }
-            for r in 3..<7 { for c in 3..<7 { cells[r][c] = 2 } }
-            let a = AmslerEye(cells: cells, distortedAreaDeg2: 20, missingAreaDeg2: 16, centralInvolved: true,
-                              centroidDistanceDeg: 0, centroidDirectionDeg: 0)
-            profile.amsler = AmslerResult(right: a, left: a)
+            for row in 2..<8 { for c in 2..<8 { cells[row][c] = 1 } }
+            for row in 3..<7 { for c in 3..<7 { cells[row][c] = 2 } }
+            let a = AmslerEye(distortedAreaDeg2: 20, missingAreaDeg2: 16, centralInvolved: true, cells: cells)
+            profile.amsler = AmslerBlock(source: .preset, right: a, left: a)
         }
-        if profile.acuity == nil {
-            // Senza test di acuità: livello moderato, tipico di queste condizioni.
-            profile.summary.level = .moderato
-        }
+        ProfileBuilder.finalizeNonisolated(&profile)
     }
 
-    /// Griglia ogni 6° entro ±27° orizzontali e ±21° verticali.
-    private static func field(radius: Double, sensitivity: (Double, Double) -> Double) -> FieldEye {
+    /// Griglia ogni 6° entro ±21° orizzontali e ±9° verticali (come il test).
+    private static func grid(_ sensitivity: (Double, Double) -> Double) -> [FieldPoint] {
         var points: [FieldPoint] = []
-        for y in stride(from: -21.0, through: 21.0, by: 6) {
-            for x in stride(from: -27.0, through: 27.0, by: 6) {
+        for y in stride(from: -9.0, through: 9.0, by: 6) {
+            for x in stride(from: -21.0, through: 21.0, by: 6) {
                 let s = sensitivity(x, y)
                 points.append(FieldPoint(x: x, y: y, sensitivity: s, sd: 0.8, seen: s >= 3))
             }
         }
-        let md = points.map { $0.sensitivity - 9 }.reduce(0, +) / Double(points.count)
-        return FieldEye(points: points, fieldRadiusDeg: radius, meanDefect: md, pattern: .nessuna,
-                        fixationLossRate: 0.05, falsePositiveRate: 0.03, falseNegativeRate: 0.04,
-                        reliability: .affidabile, blindSpot: [15, -2])
+        return points
     }
 }

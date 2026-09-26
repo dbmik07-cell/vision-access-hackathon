@@ -63,7 +63,15 @@ final class TestSession {
     let demo: Bool
     var index = 0
     var stage: Stage = .prep
-    var profile = VisualProfile()
+    // Blocchi raccolti durante i test; il profilo si costruisce alla fine.
+    var acuity: AcuityBlock?
+    var contrast: ContrastBlock?
+    var reading: ReadingBlock?
+    var amsler: AmslerBlock?
+    var visualField: VisualFieldBlock?
+    var light: LightBlock?
+    var diagnostics: [String] = []
+    private(set) var profile: VisualProfile?
 
     init(demo: Bool) {
         self.demo = demo
@@ -78,7 +86,13 @@ final class TestSession {
             index += 1
             stage = .intro
         } else {
-            ProfileBuilder.finalize(&profile)
+            // Acuità e contrasto sono obbligatori nel contratto: se mancano (demo interrotta) restano preset.
+            let base = PresetProfiles.baseline(device: ProfileBuilder.device)
+            var p = VisualProfile(device: ProfileBuilder.device, acuity: acuity ?? base.acuity,
+                                  contrast: contrast ?? base.contrast)
+            p.reading = reading; p.amsler = amsler; p.visualField = visualField; p.light = light
+            ProfileBuilder.finalize(&p)
+            profile = p
             stage = .done
         }
     }
@@ -110,6 +124,23 @@ struct TestFlowView: View {
 
     @ViewBuilder
     private func content(_ s: TestSession) -> some View {
+        if !DeviceDisplay.isSupportedModel {
+            // Contratto, sezione 7: modello assente dalla tabella → nessun ppi stimato, il test non parte.
+            VStack(spacing: 24) {
+                Image(systemName: "iphone.slash").font(.system(size: 80))
+                Text("Questo modello di iPhone (\(DeviceDisplay.modelIdentifier)) non è ancora nella tabella degli schermi: senza la densità esatta il test non sarebbe corretto.")
+                    .font(.ipo(.title2, bold: true)).multilineTextAlignment(.center)
+                BigButton(title: "Torna indietro", systemImage: "chevron.backward") { quit() }
+            }
+            .padding(24).foregroundStyle(.black).background(Color.white.ignoresSafeArea())
+            .onAppear { Voice.shared.say("Questo modello di iPhone non è ancora supportato dal test.") }
+        } else {
+            stageContent(s)
+        }
+    }
+
+    @ViewBuilder
+    private func stageContent(_ s: TestSession) -> some View {
         switch s.stage {
         case .prep:
             PrepView { s.stage = .intro }
@@ -121,7 +152,7 @@ struct TestFlowView: View {
             ProgressView().onAppear {
                 Voice.shared.say("Test finito. Ecco come vedi.")
                 Haptics.success()
-                app.finishTest(with: s.profile)
+                if let p = s.profile { app.finishTest(with: p, diagnostics: s.diagnostics) }
             }
         }
     }
@@ -131,34 +162,39 @@ struct TestFlowView: View {
         switch s.step {
         case .acuity:
             ETestView(engine: ETestEngine(kind: .acuity, demo: s.demo), onFinish: { engine in
-                s.profile.acuity = ProfileBuilder.acuityResult(engine)
+                s.acuity = ProfileBuilder.acuityBlock(engine)
+                s.diagnostics += Diagnostics.assess(quest: engine.quest, records: engine.records).map { "Acuità: \($0)" }
+                if engine.censor == .aboveLimit { s.diagnostics.append("Acuità: vista nella norma, oltre il limite misurabile dallo schermo") }
+                if engine.censor == .belowLimit { s.diagnostics.append("Acuità sotto il limite misurabile: adattamento al massimo") }
                 s.advance()
             }, onQuit: quit)
         case .contrast:
-            ETestView(engine: ETestEngine(kind: .contrast(letterLogMAR: ProfileBuilder.contrastLetterLogMAR(s.profile)),
-                                          demo: s.demo), onFinish: { engine in
-                s.profile.contrast = ProfileBuilder.contrastResult(engine)
+            let letter = ProfileBuilder.contrastLetterArcmin(acuity: s.acuity)
+            ETestView(engine: ETestEngine(kind: .contrast(letterArcmin: letter.arcmin), demo: s.demo), onFinish: { engine in
+                s.contrast = ProfileBuilder.contrastBlock(engine, letterCapped: letter.capped)
+                if engine.censor == .aboveLimit { s.diagnostics.append("Contrasto nella norma, oltre il limite misurabile dallo schermo") }
+                if engine.censor == .belowLimit { s.diagnostics.append("Contrasto sotto il limite misurabile: adattamento al massimo") }
                 s.advance()
             }, onQuit: quit)
         case .reading:
             // Si parte da una dimensione scelta in base all'acuità: 0,5 logMAR sopra la soglia.
-            ReadingTestView(startLogMAR: (s.profile.acuity?.logMAR ?? 0.3) + 0.5, demo: s.demo, onFinish: { result in
-                s.profile.reading = result
+            ReadingTestView(startLogMAR: (s.acuity?.logMAR ?? 0.3) + 0.5, demo: s.demo, onFinish: { result in
+                s.reading = result
                 s.advance()
             }, onQuit: quit)
         case .amsler:
             AmslerTestView(onFinish: { result in
-                s.profile.amsler = result
+                s.amsler = result
                 s.advance()
             }, onQuit: quit)
         case .light:
             LightTestView(onFinish: { result in
-                s.profile.light = result
+                s.light = result
                 s.advance()
             }, onQuit: quit)
         case .field:
             FieldTestView(demo: s.demo, onFinish: { result in
-                s.profile.visualField = result
+                s.visualField = result
                 s.advance()
             }, onQuit: quit)
         }

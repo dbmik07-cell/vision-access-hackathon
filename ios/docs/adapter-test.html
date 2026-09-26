@@ -26,9 +26,9 @@
 </head>
 <body>
 <div id="toolbar" data-ipoview="ui">
-  <button id="bApply">Applica (scuro, 26px, paragrafo)</button>
-  <button id="bApplyNormal">Applica (originale, 22px, normale)</button>
-  <button id="bApplyReader">Applica (chiaro, Readability)</button>
+  <button id="bApply">Applica (dark, 26px, paragraph)</button>
+  <button id="bApplyNormal">Applica (original, 22.4px, normal)</button>
+  <button id="bApplyReader">Applica (light, Readability)</button>
   <button id="bBig">Font 34px</button>
   <button id="bReset">Reset (Esc)</button>
 </div>
@@ -61,25 +61,29 @@
     window.webkit.messageHandlers = window.webkit.messageHandlers || {};
     window.webkit.messageHandlers.ipoview = { postMessage: (m) => console.log('[ipoview →Swift]', m) };
   }
+  // Formato: docs/data-contracts.md sezione 9 ("paragraph" è un'estensione post-MVP)
   const base = {
-    text: { fontFamily: 'Atkinson Hyperlegible', fontSizePx: 26, lineHeight: 1.5, letterSpacingEm: 0.12, wordSpacingEm: 0.16, paragraphSpacingEm: 2.0, align: 'left' },
-    layout: { singleColumn: true, maxLineWidthPx: 340, mode: 'paragrafo', moveEdgeElements: true },
-    color: { theme: 'scuro', background: '#121212', text: '#E8E6E3', minTextContrast: 7.0, minUIContrast: 3.0, preserveHue: true, imageBrightness: 0.85 },
+    schemaVersion: '1.0',
+    context: { referenceDistanceMm: 400, ppi: 460, nativeScale: 3 },
+    text: { fontFamily: 'Atkinson Hyperlegible', fontSizeCssPx: 26, lineHeight: 1.5, letterSpacingEm: 0.12, wordSpacingEm: 0.16, paragraphSpacingEm: 2, align: 'left' },
+    layout: { singleColumn: true, maxLineWidthCh: 30, mode: 'paragraph', moveEdgeElements: true },
+    color: { theme: 'dark', background: '#121212', text: '#E8E6E3', minTextContrast: 7, minUIContrast: 4.67, preserveHue: true, imageBrightness: 0.85 },
     controls: { underlineLinks: true, minTargetPt: 48, focusOutlinePx: 3 },
     cleanup: { removeCookieBanners: true, stopAnimations: true, useReadability: false },
-    speech: { tapToSpeak: true, rateWpm: 160 },
-    screen: { brightness: 0.8 },
+    speech: { tapToSpeak: true, rateWpm: null },
+    screen: { brightness: null },
   };
   const clone = (o) => JSON.parse(JSON.stringify(o));
   document.getElementById('bApply').onclick = () => IpoView.apply(base);
   document.getElementById('bApplyNormal').onclick = () => {
-    const p = clone(base); p.text.fontSizePx = 22; p.layout.mode = 'normale';
-    p.color = { theme: 'originale', background: '#FFFDF7', text: '#1A1A1A', minTextContrast: 7, minUIContrast: 3, preserveHue: true, imageBrightness: 1 };
+    const p = clone(base); p.text.fontSizeCssPx = 22.4; p.layout.mode = 'normal'; p.layout.maxLineWidthCh = 60; p.layout.moveEdgeElements = false;
+    p.color = { theme: 'original', background: null, text: null, minTextContrast: 4.5, minUIContrast: 3, preserveHue: true, imageBrightness: 1 };
+    p.speech.tapToSpeak = false;
     IpoView.apply(JSON.stringify(p));   // anche come stringa JSON
   };
   document.getElementById('bApplyReader').onclick = () => {
-    const p = clone(base); p.layout.mode = 'normale'; p.cleanup.useReadability = true;
-    p.color = { theme: 'chiaro', background: '#FFFDF7', text: '#1A1A1A', minTextContrast: 7, minUIContrast: 3, preserveHue: true, imageBrightness: 1 };
+    const p = clone(base); p.layout.mode = 'normal'; p.layout.maxLineWidthCh = 60; p.cleanup.useReadability = true;
+    p.color = { theme: 'light', background: '#FFFDF7', text: '#1A1A1A', minTextContrast: 7, minUIContrast: 4.67, preserveHue: true, imageBrightness: 1 };
     IpoView.apply(p);
   };
   document.getElementById('bBig').onclick = () => IpoView.setFontSizePx(34);

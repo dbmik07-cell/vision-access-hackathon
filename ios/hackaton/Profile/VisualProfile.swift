@@ -1,120 +1,124 @@
 import Foundation
 
-// Profilo funzionale della vista (SPEC sezione 11). Non è una diagnosi medica.
-// Unità: logMAR, log della sensibilità al contrasto, gradi (x a destra, y in alto), cm.
+// VisualProfile secondo il contratto dati (docs/data-contracts.md, sezione 8), schemaVersion "1.0".
+// Profilo funzionale della vista, non una diagnosi medica.
+// Blocchi obbligatori: device, acuity, contrast, summary. Opzionali (assenti se non misurati):
+// reading, amsler, visualField, light, userAdjustments. Ogni blocco di risultato ha source.
 
-nonisolated enum Reliability: String, Codable, Sendable {
-    case affidabile, dubbio
-    case nonAffidabile = "non-affidabile"
+nonisolated enum ContractReliability: String, Codable, Sendable, Comparable {
+    case reliable, doubtful, unreliable
+
+    private var rank: Int { [.reliable: 0, .doubtful: 1, .unreliable: 2][self]! }
+    static func < (a: Self, b: Self) -> Bool { a.rank < b.rank }
 
     var label: String {
         switch self {
-        case .affidabile: "affidabile"
-        case .dubbio: "dubbio"
-        case .nonAffidabile: "non affidabile"
+        case .reliable: "affidabile"
+        case .doubtful: "dubbio"
+        case .unreliable: "non affidabile"
         }
     }
 }
 
-nonisolated enum VisionLevel: String, Codable, Sendable, Comparable {
-    case normale, lieve, moderato, grave
+nonisolated enum BlockSource: String, Codable, Sendable { case measured, preset }
 
-    private var rank: Int { [.normale: 0, .lieve: 1, .moderato: 2, .grave: 3][self]! }
+/// Categoria OMS (ICD-11) dalla mediana dell'acuità.
+nonisolated enum WHOCategory: String, Codable, Sendable, Comparable {
+    case none, mild, moderate, severe, blindness
+
+    private var rank: Int { [.none: 0, .mild: 1, .moderate: 2, .severe: 3, .blindness: 4][self]! }
     static func < (a: Self, b: Self) -> Bool { a.rank < b.rank }
 
-    /// Fasce OMS sull'acuità in logMAR (cecità conteggiata come grave).
-    static func from(logMAR: Double) -> VisionLevel {
-        switch logMAR {
-        case ...0.3: .normale
-        case ...0.48: .lieve
-        case ...1.0: .moderato
-        default: .grave
+    static func from(logMAR m: Double) -> WHOCategory {
+        typealias P = ContractParameters
+        if m > P.whoBlindnessAbove { return .blindness }
+        if m > P.whoSevereAbove { return .severe }
+        if m > P.whoModerateAbove { return .moderate }
+        if m > P.whoMildAbove { return .mild }
+        return .none
+    }
+
+    var label: String {
+        switch self {
+        case .none: "nessun deficit"
+        case .mild: "lieve"
+        case .moderate: "moderata"
+        case .severe: "grave"
+        case .blindness: "cecità"
         }
     }
 }
 
-/// Una risposta registrata durante un test (per l'affidabilità e per la verifica con Python).
-nonisolated struct TrialRecord: Codable, Sendable, Equatable {
-    var stimulus: Double          // logMAR effettivo o log(1/C) effettivo
-    var correct: Bool
-    var distanceCM: Double
-    var responseTimeMs: Double
-    var shown: String             // direzione mostrata
-    var answered: String          // direzione risposta
-    var estimateAfter: Double
-    var sdAfter: Double
+/// Fascia del contrasto dalla mediana (stesse soglie di R3, estremo inferiore incluso).
+nonisolated enum ContrastBand: String, Codable, Sendable {
+    case normal, borderline, reduced, severelyReduced
+
+    static func from(logCS x: Double) -> ContrastBand {
+        typealias P = ContractParameters
+        if x >= P.contrastNormalMin { return .normal }
+        if x >= P.contrastBorderlineMin { return .borderline }
+        if x >= P.contrastReducedMin { return .reduced }
+        return .severelyReduced
+    }
+
+    var label: String {
+        switch self {
+        case .normal: "normale"
+        case .borderline: "al limite"
+        case .reduced: "ridotta"
+        case .severelyReduced: "molto ridotta"
+        }
+    }
 }
 
-nonisolated struct DeviceInfo: Codable, Sendable {
-    var model: String
+nonisolated struct DeviceBlock: Codable, Sendable, Equatable {
+    var modelIdentifier: String
     var ppi: Double
+    var nativeScale: Double
 }
 
-nonisolated struct AcuityResult: Codable, Sendable {
-    var logMAR: Double
-    var ci95: [Double]            // [basso, alto]
-    var slope: Double
-    var trials: Int
-    var reliability: Reliability
+nonisolated struct AcuityBlock: Codable, Sendable, Equatable {
+    var source: BlockSource
+    var logMAR: Double                 // mediana
+    var ci95: [Double]                 // [basso, alto]
+    var reliability: ContractReliability
     var flags: [String]
-    var meanDistanceCM: Double
-    var log: [TrialRecord]
-    /// "oltre-limite" / "sotto-limite" se il test si è fermato al limite dello schermo.
-    var censored: String? = nil
+    var whoCategory: WHOCategory
+    var trials: Int?
+    var displayLimitLogMAR: Double?
+    var censoredAtDisplayLimit: Bool?
 }
 
-nonisolated struct ContrastResult: Codable, Sendable {
-    var logCS: Double
+nonisolated struct ContrastBlock: Codable, Sendable, Equatable {
+    var source: BlockSource
+    var logCS: Double                  // mediana
     var ci95: [Double]
-    var trials: Int
-    var reliability: Reliability
+    var reliability: ContractReliability
     var flags: [String]
-    var letterLogMAR: Double
-    var log: [TrialRecord]
-    var censored: String? = nil
+    var band: ContrastBand
+    var trials: Int?
+    var ceilingLogCS: Double?
+    var censoredAtCeiling: Bool?
 }
 
-nonisolated struct ReadingSample: Codable, Sendable {
-    var logMAR: Double
-    var seconds: Double
-    var wordsCorrect: Int
-    var wordsTotal: Int
-    var wpm: Double
-}
-
-nonisolated struct ReadingResult: Codable, Sendable {
-    var measured: Bool
-    var criticalPrintSizeLogMAR: Double
-    var ci95: [Double]
-    var maxReadingSpeedWpm: Double
-    var readingAcuityLogMAR: Double
-    var reliability: Reliability
-    var flags: [String]
-    var samples: [ReadingSample]
-}
-
-nonisolated struct AmslerEye: Codable, Sendable {
-    /// Matrice 10 × 10: 0 normale, 1 distorta, 2 mancante. cells[riga][colonna], riga 0 in alto.
-    var cells: [[Int]]
+nonisolated struct AmslerEye: Codable, Sendable, Equatable {
     var distortedAreaDeg2: Double
     var missingAreaDeg2: Double
     var centralInvolved: Bool
-    /// Distanza (gradi) e direzione (gradi, 0 = destra, 90 = alto) del baricentro della zona.
-    var centroidDistanceDeg: Double?
-    var centroidDirectionDeg: Double?
+    /// Matrice 10 × 10: 0 normale, 1 distorta, 2 mancante. cells[riga][colonna], riga 0 in alto.
+    var cells: [[Int]]?
+
+    var hasProblem: Bool { distortedAreaDeg2 + missingAreaDeg2 > 0 || centralInvolved }
 }
 
-nonisolated struct AmslerResult: Codable, Sendable {
+nonisolated struct AmslerBlock: Codable, Sendable, Equatable {
+    var source: BlockSource
     var right: AmslerEye?
     var left: AmslerEye?
 
-    /// Zona centrale: no / piccola / grande (per R2).
-    var centralSeverity: String {
-        let eyes = [right, left].compactMap { $0 }
-        let worst = eyes.map { $0.distortedAreaDeg2 + $0.missingAreaDeg2 }.max() ?? 0
-        if worst == 0 { return "no" }
-        return worst >= 6 || eyes.contains(where: { $0.centralInvolved }) ? "grande" : "piccola"
-    }
+    var eyes: [AmslerEye] { [right, left].compactMap { $0 } }
+    var centralInvolved: Bool { eyes.contains { $0.centralInvolved } }
+    var hasProblem: Bool { eyes.contains { $0.hasProblem } }
 }
 
 nonisolated struct FieldPoint: Codable, Sendable, Equatable {
@@ -126,79 +130,118 @@ nonisolated struct FieldPoint: Codable, Sendable, Equatable {
 }
 
 nonisolated enum FieldPattern: String, Codable, Sendable {
-    case nessuna = "nessuna-riduzione"
-    case periferica = "riduzione-periferica"
-    case tunnel = "visione-a-tunnel"
-    case sparse = "zone-cieche-sparse"
-    case centrale = "perdita-centrale"
+    case none, peripheral, tunnel, scattered
 
     var label: String {
         switch self {
-        case .nessuna: "nessuna riduzione"
-        case .periferica: "riduzione periferica"
+        case .none: "nessuna riduzione"
+        case .peripheral: "riduzione periferica"
         case .tunnel: "visione a tunnel"
-        case .sparse: "zone cieche sparse"
-        case .centrale: "perdita centrale"
+        case .scattered: "zone cieche sparse"
         }
     }
 }
 
-nonisolated struct FieldEye: Codable, Sendable {
-    var points: [FieldPoint]
+nonisolated struct FieldEye: Codable, Sendable, Equatable {
     var fieldRadiusDeg: Double
-    var meanDefect: Double
     var pattern: FieldPattern
-    var fixationLossRate: Double
-    var falsePositiveRate: Double
-    var falseNegativeRate: Double
-    var reliability: Reliability
-    var blindSpot: [Double]?      // [x, y] in gradi
+    // Dati grezzi e indici di affidabilità: opzionali.
+    var points: [FieldPoint]?
+    var meanDefect: Double?
+    var fixationLossRate: Double?
+    var falsePositiveRate: Double?
+    var falseNegativeRate: Double?
+    var reliability: ContractReliability?
+    var blindSpot: [Double]?
 }
 
-nonisolated struct VisualFieldResult: Codable, Sendable {
+nonisolated struct VisualFieldBlock: Codable, Sendable, Equatable {
+    var source: BlockSource
     var right: FieldEye?
     var left: FieldEye?
-    /// true se viene da un profilo predefinito della demo, non da un test.
-    var isPreset: Bool = false
 
-    var worstRadius: Double? { [right, left].compactMap { $0?.fieldRadiusDeg }.min() }
-    var patterns: [FieldPattern] { [right, left].compactMap { $0?.pattern } }
+    var eyes: [FieldEye] { [right, left].compactMap { $0 } }
+    var hasProblem: Bool { eyes.contains { $0.pattern != .none } }
 }
 
-nonisolated enum Theme: String, Codable, Sendable {
-    case originale, chiaro, scuro
-}
+nonisolated enum PreferredTheme: String, Codable, Sendable { case light, dark }
 
-nonisolated struct LightResult: Codable, Sendable {
-    var preferredTheme: Theme
-    var preferredBrightness: Double   // 0...1
+nonisolated struct LightBlock: Codable, Sendable, Equatable {
+    var source: BlockSource
     var photophobia: Bool
-    var scores: [String: Double]      // punteggi Bradley-Terry delle 4 versioni
-    var ambientLux: Double?
+    var preferredTheme: PreferredTheme?
+    var preferredBrightness: Double?
 }
 
-nonisolated struct ProfileSummary: Codable, Sendable {
-    var level: VisionLevel
+/// Lettura: blocco riservato nel contratto (post-MVP, campi da definire). Qui i campi dell'app.
+nonisolated struct ReadingSample: Codable, Sendable, Equatable {
+    var logMAR: Double
+    var seconds: Double
+    var wordsCorrect: Int
+    var wordsTotal: Int
+    var wpm: Double
+}
+
+nonisolated struct ReadingBlock: Codable, Sendable, Equatable {
+    var source: BlockSource
+    var measured: Bool
+    var criticalPrintSizeLogMAR: Double
+    var ci95: [Double]
+    var maxReadingSpeedWpm: Double
+    var readingAcuityLogMAR: Double
+    var reliability: ContractReliability
+    var flags: [String]
+    var samples: [ReadingSample]?
+}
+
+nonisolated struct SummaryBlock: Codable, Sendable, Equatable {
     var normalVision: Bool
-    var overallReliability: Reliability
-    var reasons: [String] = []
+    /// Peggiore tra i blocchi misurati; null se nessun blocco è misurato.
+    var overallReliability: ContractReliability?
+
+    enum CodingKeys: String, CodingKey { case normalVision, overallReliability }
+
+    init(normalVision: Bool, overallReliability: ContractReliability?) {
+        self.normalVision = normalVision
+        self.overallReliability = overallReliability
+    }
+
+    // null esplicito per overallReliability (il campo c'è sempre).
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(normalVision, forKey: .normalVision)
+        try c.encode(overallReliability, forKey: .overallReliability)
+    }
 }
 
-nonisolated struct UserAdjustments: Codable, Sendable {
+nonisolated struct UserAdjustments: Codable, Sendable, Equatable {
     /// Correzione manuale della dimensione del testo, a passi di 0,1 logMAR (R10).
     var textSizeOffsetLogMAR: Double = 0
 }
 
-nonisolated struct VisualProfile: Codable, Sendable {
-    var version = 1
-    var createdAt = Date()
-    var device = DeviceInfo(model: DeviceDisplay.modelIdentifier, ppi: DeviceDisplay.ppi)
-    var acuity: AcuityResult?
-    var contrast: ContrastResult?
-    var reading: ReadingResult?
-    var amsler: AmslerResult?
-    var visualField: VisualFieldResult?
-    var light: LightResult?
-    var summary = ProfileSummary(level: .normale, normalVision: false, overallReliability: .dubbio)
-    var userAdjustments = UserAdjustments()
+nonisolated struct VisualProfile: Codable, Sendable, Equatable {
+    var schemaVersion = ContractParameters.schemaVersion
+    var device: DeviceBlock
+    var acuity: AcuityBlock
+    var contrast: ContrastBlock
+    var summary = SummaryBlock(normalVision: false, overallReliability: nil)
+    var reading: ReadingBlock?
+    var amsler: AmslerBlock?
+    var visualField: VisualFieldBlock?
+    var light: LightBlock?
+    var userAdjustments: UserAdjustments?
+
+    var textSizeOffset: Double { userAdjustments?.textSizeOffsetLogMAR ?? 0 }
+}
+
+/// Una risposta registrata durante un test (dati dell'app, fuori dal profilo del contratto).
+nonisolated struct TrialRecord: Codable, Sendable, Equatable {
+    var stimulus: Double
+    var correct: Bool
+    var distanceCM: Double
+    var responseTimeMs: Double
+    var shown: String
+    var answered: String
+    var estimateAfter: Double
+    var sdAfter: Double
 }

@@ -5,7 +5,7 @@ import SwiftUI
 struct ReadingTestView: View {
     let startLogMAR: Double
     let demo: Bool
-    var onFinish: (ReadingResult) -> Void
+    var onFinish: (ReadingBlock) -> Void
     var onQuit: () -> Void
 
     enum Stage { case permission, ready, reading, done }
@@ -20,7 +20,7 @@ struct ReadingTestView: View {
     @State private var speechWorks = false
     private var tracker = FaceDistanceTracker.shared
 
-    init(startLogMAR: Double, demo: Bool, onFinish: @escaping (ReadingResult) -> Void, onQuit: @escaping () -> Void) {
+    init(startLogMAR: Double, demo: Bool, onFinish: @escaping (ReadingBlock) -> Void, onQuit: @escaping () -> Void) {
         self.startLogMAR = startLogMAR
         self.demo = demo
         self.onFinish = onFinish
@@ -31,13 +31,14 @@ struct ReadingTestView: View {
 
     /// Dimensione del font in punti per una frase di `logMAR` alla distanza attuale (x = 5′·10^s).
     private func fontPt(_ logMAR: Double) -> Double {
-        RulesEngine.fontSizePx(targetLogMAR: logMAR, context: BrowserContext.current())
+        RulesEngine.fontSizeCssPx(targetLogMAR: logMAR, context: BrowserContext.current())
+            * FaceDistanceTracker.shared.effectiveMM / ContractParameters.referenceDistanceMm
     }
 
     /// Dimensione più grande che sta nello schermo (almeno 14 caratteri per riga).
     private var maxLogMAR: Double {
         let width = Double(DeviceDisplay.screenSizePt.width) - 32
-        let maxFont = width / (RulesEngine.avgCharWidthEm * 14)
+        let maxFont = width / (ContractParameters.fontZeroWidthEm * 14)
         let ref = fontPt(0)
         return log10(maxFont / ref)
     }
@@ -163,8 +164,8 @@ struct ReadingTestView: View {
         let measured = fit != nil && samples.filter { $0.wpm > 0 }.count >= 3
         let cps = fit?.cps ?? acuity + 0.2
         // Intervallo pratico: ± un passo della prova (0,1 logMAR).
-        let rel: Reliability = !measured ? .nonAffidabile : (flags.isEmpty ? .affidabile : .dubbio)
-        onFinish(ReadingResult(measured: measured, criticalPrintSizeLogMAR: cps, ci95: [cps - 0.1, cps + 0.1],
+        let rel: ContractReliability = !measured ? .unreliable : (flags.isEmpty ? .reliable : .doubtful)
+        onFinish(ReadingBlock(source: .measured, measured: measured, criticalPrintSizeLogMAR: cps, ci95: [cps - 0.1, cps + 0.1],
                                maxReadingSpeedWpm: fit?.mrs ?? (samples.map(\.wpm).max() ?? 0),
                                readingAcuityLogMAR: acuity, reliability: rel, flags: flags, samples: samples))
     }

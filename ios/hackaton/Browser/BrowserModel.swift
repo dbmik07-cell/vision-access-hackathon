@@ -3,11 +3,9 @@ import WebKit
 import Observation
 
 enum BrowserContext {
-    static func current(distanceMM: Double? = nil) -> ViewingContext {
-        ViewingContext(distanceMM: distanceMM ?? FaceDistanceTracker.shared.effectiveMM,
-                       ppi: DeviceDisplay.ppi,
-                       scale: DeviceDisplay.nativeScale,
-                       screenWidthPt: Double(DeviceDisplay.screenSizePt.width))
+    /// ppi dalla tabella e nativeScale letto a runtime (contratto, sezione 7).
+    static func current() -> ViewingContext {
+        ViewingContext(ppi: DeviceDisplay.ppi ?? 460, nativeScale: DeviceDisplay.nativeScale)
     }
 }
 
@@ -39,6 +37,8 @@ enum OfflinePage: String, CaseIterable, Identifiable {
 final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler, WKUIDelegate {
     @ObservationIgnored let webView: WKWebView
     var adapted = true { didSet { refreshScripts(); applyToCurrentPage() } }
+    /// Estensioni post-MVP (R5 un paragrafo alla volta, R9 lettura grande) sopra il piano del contratto.
+    var extensionsEnabled = true { didSet { if oldValue != extensionsEnabled { rebuildPlan() } } }
     var addressText = ""
     var pageTitle = ""
     var canGoBack = false
@@ -98,15 +98,24 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
 
     func update(profile: VisualProfile?) {
         self.profile = profile
+        rebuildPlan()
+    }
+
+    private func rebuildPlan() {
+        let profile = self.profile
         // Vista nella norma (SPEC 6, caso A): nessun adattamento di default, resta disponibile "Per me".
         if !didChooseInitialMode, let profile {
             didChooseInitialMode = true
-            if profile.summary.normalVision && profile.visualField?.isPreset != true { adapted = false }
+            if profile.summary.normalVision && profile.visualField?.source != .preset && profile.amsler?.source != .preset {
+                adapted = false
+            }
         }
-        let newPlan = RulesEngine.plan(profile: profile, context: BrowserContext.current())
+        let base = profile ?? PresetProfiles.baseline(device: ProfileBuilder.device)
+        var newPlan = RulesEngine.plan(profile: base, context: BrowserContext.current())
+        if extensionsEnabled { Self.applyPostMVPExtensions(&newPlan, profile: base) }
         guard newPlan != plan else { return }
         plan = newPlan
-        appliedFontPx = newPlan.text.fontSizePx
+        appliedFontPx = RulesEngine.fontSizeAtDistance(plan: newPlan, distanceMm: FaceDistanceTracker.shared.effectiveMM)
         refreshScripts()
         applyToCurrentPage()
         if adapted, let b = newPlan.screen.brightness { ScreenBrightness.lock(b) }
@@ -135,6 +144,23 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
         }
     }
 
+    /// Estensioni post-MVP (fuori dai casi golden): R5 con campo sotto 10° → un paragrafo alla volta;
+    /// R9 con meno di 12 caratteri per riga sullo schermo → lettura grande con la voce.
+    static func applyPostMVPExtensions(_ plan: inout AdaptationPlan, profile: VisualProfile) {
+        if let r = profile.visualField?.eyes.map(\.fieldRadiusDeg).max(), profile.visualField?.hasProblem == true, r < 10 {
+            plan.layout.mode = "paragraph"
+        }
+        let screenCh = (Double(DeviceDisplay.screenSizePt.width) - 24)
+            / (plan.text.fontSizeCssPx * (ContractParameters.fontZeroWidthEm + plan.text.letterSpacingEm))
+        if screenCh < 12 {
+            plan.layout.mode = "large-reading"
+            plan.speech.tapToSpeak = true
+            if let wpm = profile.reading?.maxReadingSpeedWpm, profile.reading?.measured == true {
+                plan.speech.rateWpm = min(220, max(80, wpm))
+            }
+        }
+    }
+
     // MARK: R1 in tempo reale: il testo segue la distanza del viso
 
     /// Ogni 100 ms ricalcola la dimensione dalla distanza filtrata.
@@ -148,8 +174,8 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
                 guard let self, self.adapted, !self.showStart, let plan = self.plan else { continue }
                 let tracker = FaceDistanceTracker.shared
                 guard tracker.faceVisible || !FaceDistanceTracker.isSupported else { continue }
-                let px = RulesEngine.fontSizePx(profile: self.profile, context: BrowserContext.current())
-                _ = plan
+                // ADR 0003: il piano è a 400 mm; a runtime si riscala per d / 400.
+                let px = RulesEngine.fontSizeAtDistance(plan: plan, distanceMm: tracker.effectiveMM)
                 if self.appliedFontPx > 0, abs(px - self.appliedFontPx) / self.appliedFontPx > 0.08 {
                     self.appliedFontPx = px
                     self.js("typeof IpoView!=='undefined' && IpoView.setFontSizePx(\(px))")

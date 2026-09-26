@@ -39,10 +39,11 @@ nonisolated enum DeviceDisplay {
     ]
 
     static var modelName: String { ppiTable[modelIdentifier]?.name ?? modelIdentifier }
-    /// Modelli sconosciuti (più recenti): 460 ppi, il valore di tutti gli iPhone recenti.
-    static var ppi: Double { ppiTable[modelIdentifier]?.ppi ?? 460 }
+    /// Contratto (sezione 7): modello assente dalla tabella → nessun ppi stimato, il test non parte.
+    static var ppi: Double? { ppiTable[modelIdentifier]?.ppi }
+    static var isSupportedModel: Bool { ppi != nil }
 
-    /// Pixel fisici per punto iOS (3 sulla maggior parte dei modelli, 2,88 sui mini).
+    /// Pixel fisici per punto iOS letto a runtime (3 sulla maggior parte dei modelli, 2,88 sui mini, cambia con lo Zoom).
     @MainActor static var nativeScale: Double {
         let screen = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen
         return Double(screen?.nativeScale ?? 3)
@@ -77,8 +78,8 @@ nonisolated enum VisualAngle {
     }
 
     /// px = h_mm · ppi / 25,4
-    static func px(mm: Double, ppi: Double = DeviceDisplay.ppi) -> Double { mm * ppi / 25.4 }
-    static func mm(px: Double, ppi: Double = DeviceDisplay.ppi) -> Double { px * 25.4 / ppi }
+    static func px(mm: Double, ppi: Double = DeviceDisplay.ppi ?? 460) -> Double { mm * ppi / 25.4 }
+    static func mm(px: Double, ppi: Double = DeviceDisplay.ppi ?? 460) -> Double { px * 25.4 / ppi }
 
     /// Pixel fisici → punti iOS (= px CSS nel WKWebView con viewport device-width).
     static func pt(px: Double, scale: Double) -> Double { px / scale }
