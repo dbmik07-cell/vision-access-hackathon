@@ -1,0 +1,3 @@
+# Tracce scriptate invece di seed condivisi
+
+La specifica (sezione 11) prevedeva di verificare Swift contro Python con lo stesso seed casuale, cosi che prove e intervalli fossero identici. Lo stesso seed pero produce sequenze diverse nei generatori di Swift e di numpy, e allinearli richiederebbe di implementare lo stesso generatore e lo stesso ordine di consumo nei due linguaggi. Poiche QUEST+ nell'MVP e deterministico (la casualita entra solo simulando un osservatore), la verifica incrociata usa **tracce scriptate**: risposte fissate in anticipo, stimoli ammissibili passati come input a ogni prova e output attesi per ogni passo, con tolleranze esplicite e spareggio all'indice piu basso. Il seed resta solo nelle simulazioni Python, dove non deve coincidere con Swift.
