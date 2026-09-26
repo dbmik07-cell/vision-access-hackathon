@@ -4,6 +4,7 @@ import copy
 
 import pytest
 
+from contract import compare
 from quest import ENGINE_STOP, QuestPlus, run_trace
 from tests.golden_cases import EXAMPLES_DIR, read_json
 
@@ -60,7 +61,7 @@ def test_marginal_sums_to_one_after_updates(contract):
     engine = tiny_engine(contract)
     for index, correct in [(0, True), (1, False), (1, True)]:
         engine.update(index, correct)
-    assert sum(engine.summary().threshold_marginal) == pytest.approx(1, abs=1e-12)
+    assert compare(sum(engine.summary().threshold_marginal), 1.0, contract.tolerances) == []
 
 
 def test_engine_stop_ends_the_trace(contract):
@@ -103,4 +104,4 @@ def test_run_trace_does_not_modify_its_input(contract):
 
 
 def test_run_trace_loads_the_contract_when_not_given(contract):
-    assert run_trace(tiny_trace()) == run_trace(tiny_trace(), contract=contract)
+    assert compare(run_trace(tiny_trace()), run_trace(tiny_trace(), contract=contract), contract.tolerances) == []

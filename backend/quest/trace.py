@@ -13,18 +13,15 @@ RESPONSES_EXHAUSTED = "responsesExhausted"
 Observer = Callable[[int, float], bool]
 
 
-def _observer(spec: dict) -> Observer:
+def _observer(spec: dict) -> tuple[Observer, int | None]:
+    """The observer and how many responses it has (None: it never runs out)."""
     if spec["type"] == "scripted":
         responses = list(spec["responses"])
-        return lambda trial, x: responses[trial - 1]
+        return (lambda trial, x: responses[trial - 1]), len(responses)
     if spec["type"] == "deterministicThreshold":
         threshold, inverted = spec["thresholdX"], frozenset(spec["invertTrials"])
-        return lambda trial, x: (x >= threshold) != (trial in inverted)
+        return (lambda trial, x: (x >= threshold) != (trial in inverted)), None
     raise ValueError(f"unknown observer type {spec['type']!r}")
-
-
-def _has_response(observer_spec: dict, trial: int) -> bool:
-    return observer_spec["type"] != "scripted" or trial <= len(observer_spec["responses"])
 
 
 def run_trace(trace: dict, contract: Contract | None = None) -> dict:
@@ -36,13 +33,13 @@ def run_trace(trace: dict, contract: Contract | None = None) -> dict:
     stimuli = contract.resolve_stimuli(trace["stimuli"])
     engine = QuestPlus(contract.resolve_engine(trace["engine"]), stimuli)
     admissible = list(trace["admissibleIndices"])
-    observer = _observer(trace["observer"])
+    observer, response_count = _observer(trace["observer"])
 
     steps = []
     ended_by = ENGINE_STOP
     while not engine.should_stop():
         trial = engine.trials + 1
-        if not _has_response(trace["observer"], trial):
+        if response_count is not None and trial > response_count:
             ended_by = RESPONSES_EXHAUSTED
             break
         choice = engine.choose(admissible)
