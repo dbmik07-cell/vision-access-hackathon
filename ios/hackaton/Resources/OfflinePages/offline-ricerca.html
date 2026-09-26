@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cerca (copia offline) - orari treni roma milano</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    color: #999999;
+    background: #ffffff;
+  }
+  a { text-decoration: none; }
+
+  header.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: #ffffff;
+    border-bottom: 1px solid #eee;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  header.site-header .logo {
+    font-size: 20px;
+    font-weight: bold;
+    display: flex;
+    gap: 1px;
+  }
+  header.site-header .logo span:nth-child(1) { color: #b0b8e0; }
+  header.site-header .logo span:nth-child(2) { color: #e0b0b0; }
+  header.site-header .logo span:nth-child(3) { color: #d8cf9c; }
+  header.site-header .logo span:nth-child(4) { color: #b0b8e0; }
+  header.site-header .logo span:nth-child(5) { color: #b0cdb0; }
+  header.site-header .logo span:nth-child(6) { color: #e0b0b0; }
+  header.site-header form.search-form {
+    flex: 1;
+    display: flex;
+    max-width: 500px;
+  }
+  header.site-header form.search-form input {
+    flex: 1;
+    font-size: 13px;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 20px 0 0 20px;
+    color: #a0a0a0;
+  }
+  header.site-header form.search-form button {
+    border: 1px solid #ddd;
+    border-left: none;
+    background: #f2f2f2;
+    color: #b0b0b0;
+    border-radius: 0 20px 20px 0;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  nav.topnav {
+    margin-left: auto;
+  }
+  nav.topnav ul {
+    list-style: none;
+    display: flex;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
+  }
+  nav.topnav a { color: #b3b3b3; }
+
+  nav.result-type-nav {
+    border-bottom: 1px solid #eee;
+    padding: 0 14px;
+    max-width: 1024px;
+    margin: 0 auto;
+  }
+  nav.result-type-nav ul {
+    list-style: none;
+    display: flex;
+    gap: 18px;
+    margin: 0;
+    padding: 8px 0;
+    font-size: 12px;
+  }
+  nav.result-type-nav a { color: #b8b8b8; }
+  nav.result-type-nav .active { color: #a0a0a0; border-bottom: 2px solid #c9c9c9; padding-bottom: 8px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
+    max-width: 1024px;
+    margin: 0 auto;
+    padding: 14px;
+  }
+
+  .results-count {
+    font-size: 11px;
+    color: #c2c2c2;
+    margin-bottom: 10px;
+  }
+
+  .result-item {
+    margin-bottom: 18px;
+  }
+  .result-item .result-url {
+    font-size: 12px;
+    color: #a8c2a8;
+    margin-bottom: 2px;
+  }
+  .result-item .result-title {
+    font-size: 16px;
+    color: #adb8e0;
+    margin: 0 0 3px 0;
+  }
+  .result-item .result-title a { color: #adb8e0; }
+  .result-item .result-snippet {
+    font-size: 13px;
+    color: #b0b0b0;
+    line-height: 1.4;
+  }
+
+  .people-ask-box {
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin: 18px 0;
+    font-size: 12px;
+    color: #b0b0b0;
+  }
+  .people-ask-box h3 {
+    font-size: 12px;
+    color: #a8a8a8;
+    margin: 0 0 8px 0;
+  }
+  .people-ask-box ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .people-ask-box li {
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .pagination {
+    display: flex;
+    gap: 10px;
+    font-size: 13px;
+    color: #adb8e0;
+    margin-top: 20px;
+  }
+  .pagination span.current {
+    color: #909090;
+    font-weight: bold;
+  }
+
+  aside.sidebar {
+    font-size: 12px;
+    color: #b8b8b8;
+  }
+  .ad, .banner-pubblicitario, .adsbox {
+    background: repeating-linear-gradient(45deg, #e0e0e0, #e0e0e0 10px, #d8d8d8 10px, #d8d8d8 20px);
+    border: 1px dashed #c9c9c9;
+    color: #b3b3b3;
+    text-align: center;
+    padding: 20px 4px;
+    margin-bottom: 14px;
+    font-size: 10px;
+  }
+
+  .info-panel {
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 14px;
+  }
+  .info-panel h3 {
+    font-size: 13px;
+    color: #a8a8a8;
+    margin: 0 0 6px 0;
+  }
+  .info-panel p {
+    font-size: 11px;
+    color: #bcbcbc;
+    line-height: 1.4;
+  }
+
+  /* Carosello automatico */
+  .carousel {
+    position: relative;
+    overflow: hidden;
+    height: 90px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    margin-bottom: 14px;
+  }
+  .carousel-track {
+    display: flex;
+    width: 300%;
+    height: 100%;
+    animation: slide 9s infinite;
+  }
+  .carousel-slide {
+    width: calc(100% / 3);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #c0c0c0;
+    text-align: center;
+    padding: 6px;
+  }
+  .carousel-slide:nth-child(1) { background: #f5f0f0; }
+  .carousel-slide:nth-child(2) { background: #f0f2f5; }
+  .carousel-slide:nth-child(3) { background: #f2f5f0; }
+
+  @keyframes slide {
+    0%, 30%   { transform: translateX(0%); }
+    33%, 63%  { transform: translateX(-33.333%); }
+    66%, 96%  { transform: translateX(-66.666%); }
+    100%      { transform: translateX(0%); }
+  }
+
+  footer.site-footer {
+    max-width: 1024px;
+    margin: 0 auto;
+    padding: 14px 14px 60px 14px;
+    font-size: 10px;
+    color: #c0c0c0;
+    border-top: 1px solid #eee;
+  }
+  footer.site-footer ul {
+    list-style: none;
+    display: flex;
+    gap: 12px;
+    padding: 0;
+    flex-wrap: wrap;
+  }
+
+  #cookie-consent.cookie-banner {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #ffffff;
+    border-top: 1px solid #ddd;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #b0b0b0;
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.15);
+    z-index: 100;
+  }
+  #cookie-consent .cookie-buttons button {
+    margin-left: 6px;
+    font-size: 11px;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    background: #eee;
+    color: #999;
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="logo">
+    <span>C</span><span>e</span><span>r</span><span>c</span><span>a</span><span>!</span>
+  </div>
+  <form class="search-form">
+    <input type="text" value="orari treni roma milano">
+    <button type="button">Cerca</button>
+  </form>
+  <nav class="topnav">
+    <ul>
+      <li><a href="#">Immagini</a></li>
+      <li><a href="#">Mappe</a></li>
+      <li><a href="#">Notizie</a></li>
+      <li><a href="#">Accedi</a></li>
+    </ul>
+  </nav>
+</header>
+
+<nav class="result-type-nav">
+  <ul>
+    <li class="active"><a href="#">Tutti</a></li>
+    <li><a href="#">Notizie</a></li>
+    <li><a href="#">Immagini</a></li>
+    <li><a href="#">Mappe</a></li>
+    <li><a href="#">Shopping</a></li>
+    <li><a href="#">Altro</a></li>
+  </ul>
+</nav>
+
+<div class="layout">
+
+  <main>
+    <p class="results-count">Circa 4.290.000 risultati (0,41 secondi)</p>
+
+    <div class="carousel">
+      <div class="carousel-track">
+        <div class="carousel-slide">Pubblicità &mdash; Confronta i prezzi dei biglietti treno online</div>
+        <div class="carousel-slide">Pubblicità &mdash; App ufficiale orari e ritardi in tempo reale</div>
+        <div class="carousel-slide">Pubblicità &mdash; Noleggio auto in stazione, offerte del weekend</div>
+      </div>
+    </div>
+
+    <div class="result-item">
+      <div class="result-url">offline-trenitalia.html</div>
+      <h2 class="result-title"><a href="offline-trenitalia.html">Treni Italia (copia offline) &mdash; Orari e biglietti Roma Termini - Milano Centrale</a></h2>
+      <p class="result-snippet">Cerca e acquista biglietti del treno per la tratta Roma Termini - Milano Centrale. Confronta Frecciarossa, Italo, Intercity e Regionali, orari aggiornati e prezzi a partire da 15,00 &euro;.</p>
+    </div>
+
+    <div class="result-item">
+      <div class="result-url">www.orarioferroviario.example/roma-milano</div>
+      <h2 class="result-title"><a href="#">Orario ferroviario Roma - Milano: tutti i treni del giorno</a></h2>
+      <p class="result-snippet">Elenco completo dei collegamenti ferroviari tra Roma e Milano con orari di partenza, arrivo, durata del viaggio e numero di cambi previsti lungo la tratta.</p>
+    </div>
+
+    <div class="result-item">
+      <div class="result-url">offline-articolo.html</div>
+      <h2 class="result-title"><a href="offline-articolo.html">Il Quotidiano (copia offline) &mdash; Servizi pubblici e accessibilità digitale</a></h2>
+      <p class="result-snippet">Un approfondimento su come i siti di trasporti e servizi pubblici siano spesso poco accessibili per anziani e persone ipovedenti, e cosa si potrebbe fare per migliorarli.</p>
+    </div>
+
+    <div class="result-item">
+      <div class="result-url">www.viaggitreno.example/tratte/roma-milano</div>
+      <h2 class="result-title"><a href="#">Roma Milano in treno: quanto costa e quanto dura il viaggio</a></h2>
+      <p class="result-snippet">Guida ai prezzi e ai tempi di percorrenza tra Roma e Milano: differenze tra Frecciarossa, Italo e treni regionali, consigli per risparmiare prenotando in anticipo.</p>
+    </div>
+
+    <div class="result-item">
+      <div class="result-url">forum.viaggiatori.example/t/roma-milano-2026</div>
+      <h2 class="result-title"><a href="#">Consigli per il viaggio Roma-Milano: discussione del forum</a></h2>
+      <p class="result-snippet">Discussione tra viaggiatori su quale treno scegliere per andare da Roma a Milano, con esperienze dirette su puntualità, comodità delle carrozze e servizio a bordo.</p>
+    </div>
+
+    <div class="banner-pubblicitario ad">
+      Pubblicità &mdash; Confronta le tariffe di tutti i vettori ferroviari in un click
+    </div>
+
+    <div class="result-item">
+      <div class="result-url">www.mappe-stazioni.example/roma-termini</div>
+      <h2 class="result-title"><a href="#">Stazione Roma Termini: mappa, binari e servizi</a></h2>
+      <p class="result-snippet">Come muoversi all'interno della stazione di Roma Termini: posizione dei binari, sale d'attesa, servizi per persone con disabilità e punti di informazione.</p>
+    </div>
+
+    <div class="result-item">
+      <div class="result-url">www.turismo-italia.example/da-roma-a-milano</div>
+      <h2 class="result-title"><a href="#">Da Roma a Milano: treno, aereo o auto? Confronto completo</a></h2>
+      <p class="result-snippet">Analisi comparativa dei mezzi di trasporto disponibili tra Roma e Milano, con tempi di percorrenza, costi medi e impatto ambientale di ciascuna opzione.</p>
+    </div>
+
+    <div class="result-item">
+      <div class="result-url">www.assistenzaviaggiatori.example/disabilita-visiva</div>
+      <h2 class="result-title"><a href="#">Assistenza in stazione per persone con disabilità visiva</a></h2>
+      <p class="result-snippet">Informazioni su come richiedere assistenza gratuita in stazione per persone ipovedenti o non vedenti durante il viaggio in treno, con numero verde dedicato.</p>
+    </div>
+
+    <div class="people-ask-box">
+      <h3>Le persone hanno chiesto anche</h3>
+      <ul>
+        <li>Quanto dura il viaggio Roma-Milano in Frecciarossa?</li>
+        <li>Qual è il treno più economico per Milano?</li>
+        <li>Come richiedere assistenza disabili in stazione?</li>
+        <li>Da quale binario parte il Frecciarossa a Roma Termini?</li>
+      </ul>
+    </div>
+
+    <div class="pagination">
+      <span class="current">1</span>
+      <a href="#">2</a>
+      <a href="#">3</a>
+      <a href="#">4</a>
+      <a href="#">Successivo &rsaquo;</a>
+    </div>
+  </main>
+
+  <aside class="sidebar">
+    <div class="info-panel">
+      <h3>Roma Termini &rarr; Milano Centrale</h3>
+      <p>Tratta ferroviaria ad alta velocità, circa 2h 55m con Frecciarossa. Partenze frequenti durante tutta la giornata, da diversi binari della stazione.</p>
+    </div>
+    <div class="adsbox ad">
+      Pubblicità<br>Assicurazione<br>viaggio treno<br>da 3,90€
+    </div>
+    <div class="adsbox ad">
+      Pubblicità<br>Hotel vicino<br>Milano Centrale<br>-20% oggi
+    </div>
+    <div class="info-panel">
+      <h3>Ricerche correlate</h3>
+      <p>orari treni roma milano oggi &middot; treni roma milano economici &middot; frecciarossa roma milano prezzi &middot; stazione centrale milano binari</p>
+    </div>
+  </aside>
+
+</div>
+
+<footer class="site-footer">
+  <ul>
+    <li><a href="#">Assistenza</a></li>
+    <li><a href="#">Privacy</a></li>
+    <li><a href="#">Termini</a></li>
+    <li><a href="#">Impostazioni</a></li>
+  </ul>
+  <p>Cerca (copia offline) - Pagina dimostrativa generata per uso offline in IpoView. Risultati di ricerca di fantasia.</p>
+</footer>
+
+<div id="cookie-consent" class="cookie-banner">
+  <span>Utilizziamo i cookie per migliorare i risultati di ricerca e mostrarti pubblicità personalizzata in base ai tuoi interessi.</span>
+  <span class="cookie-buttons">
+    <button type="button">Rifiuta</button>
+    <button type="button">Accetta tutti</button>
+  </span>
+</div>
+
+</body>
+</html>

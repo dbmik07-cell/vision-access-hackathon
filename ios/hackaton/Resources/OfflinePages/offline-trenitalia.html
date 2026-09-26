@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1024">
+<title>Treni Italia (copia offline) - Risultati ricerca Roma Termini - Milano Centrale</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    color: #9a9a9a;
+    background: #f2f2f2;
+  }
+  a { color: #9a9a9a; text-decoration: none; }
+
+  header.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: #b00020;
+    color: #ffe3e3;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  header.site-header .logo {
+    font-size: 15px;
+    font-weight: bold;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  header.site-header .logo svg { width: 22px; height: 22px; }
+  nav.topnav ul {
+    list-style: none;
+    display: flex;
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+  }
+  nav.topnav a { color: #ffd7d7; font-size: 11px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 150px 1fr 160px;
+    gap: 8px;
+    max-width: 1024px;
+    margin: 0 auto;
+    padding: 8px;
+  }
+
+  aside.left-rail, aside.right-rail {
+    background: #ececec;
+    padding: 6px;
+    font-size: 11px;
+    color: #aaaaaa;
+  }
+
+  .ad, .banner-pubblicitario, .adsbox {
+    background: repeating-linear-gradient(45deg, #e0e0e0, #e0e0e0 10px, #d8d8d8 10px, #d8d8d8 20px);
+    border: 1px dashed #c9c9c9;
+    color: #b3b3b3;
+    text-align: center;
+    padding: 18px 4px;
+    margin-bottom: 8px;
+    font-size: 10px;
+  }
+
+  main {
+    background: #ffffff;
+    padding: 10px;
+    min-width: 0;
+  }
+
+  h1.page-title {
+    font-size: 14px;
+    color: #a0a0a0;
+    font-weight: normal;
+    margin: 4px 0 10px 0;
+  }
+
+  form.search-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: #f7f7f7;
+    border: 1px solid #e6e6e6;
+    padding: 8px;
+    margin-bottom: 12px;
+    align-items: flex-end;
+  }
+  form.search-form div.field {
+    display: flex;
+    flex-direction: column;
+    font-size: 10px;
+    color: #b0b0b0;
+  }
+  form.search-form input {
+    font-size: 11px;
+    padding: 3px;
+    width: 110px;
+    color: #a8a8a8;
+    border: 1px solid #ddd;
+  }
+  form.search-form button {
+    background: #d6d6d6;
+    color: #999;
+    border: 1px solid #ccc;
+    font-size: 11px;
+    padding: 5px 12px;
+    cursor: pointer;
+  }
+
+  table.results {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  table.results th {
+    text-align: left;
+    font-weight: normal;
+    color: #b5b5b5;
+    border-bottom: 1px solid #eee;
+    padding: 4px;
+    font-size: 11px;
+  }
+  table.results td {
+    padding: 6px 4px;
+    border-bottom: 1px solid #f0f0f0;
+    color: #a3a3a3;
+    vertical-align: top;
+  }
+  table.results tr:nth-child(even) td {
+    background: #fafafa;
+  }
+  .train-name {
+    font-weight: bold;
+    color: #b6b6b6;
+  }
+  .platform-info {
+    font-size: 10px;
+    color: #c2c2c2;
+  }
+  .price {
+    color: #a5a5a5;
+    font-size: 12px;
+  }
+  button.buy {
+    background: #e3e3e3;
+    color: #999;
+    border: 1px solid #d0d0d0;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  footer.site-footer {
+    max-width: 1024px;
+    margin: 0 auto;
+    padding: 14px 10px 60px 10px;
+    font-size: 10px;
+    color: #c0c0c0;
+    border-top: 1px solid #eee;
+  }
+  footer.site-footer ul {
+    list-style: none;
+    display: flex;
+    gap: 12px;
+    padding: 0;
+    flex-wrap: wrap;
+  }
+
+  #cookie-consent.cookie-banner {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #ffffff;
+    border-top: 1px solid #ddd;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #b0b0b0;
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.15);
+    z-index: 100;
+  }
+  #cookie-consent .cookie-buttons button {
+    margin-left: 6px;
+    font-size: 11px;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    background: #eee;
+    color: #999;
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="4" width="18" height="12" rx="3" fill="#ffffff"/>
+      <circle cx="8" cy="18" r="2" fill="#ffffff"/>
+      <circle cx="16" cy="18" r="2" fill="#ffffff"/>
+      <rect x="6" y="7" width="5" height="4" fill="#b00020"/>
+      <rect x="13" y="7" width="5" height="4" fill="#b00020"/>
+    </svg>
+    Treni Italia (copia offline)
+  </div>
+  <nav class="topnav">
+    <ul>
+      <li><a href="#">Home</a></li>
+      <li><a href="#">Acquista biglietti</a></li>
+      <li><a href="#">Le mie prenotazioni</a></li>
+      <li><a href="#">Offerte</a></li>
+      <li><a href="#">Assistenza</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="layout">
+
+  <aside class="left-rail">
+    <div class="banner-pubblicitario ad">
+      Pubblicità<br>Noleggio auto<br>a Milano<br>da 19€/giorno
+    </div>
+    <div class="banner-pubblicitario ad">
+      Assicurazione<br>viaggio<br>scopri di più
+    </div>
+    <div style="font-size:10px; color:#bcbcbc;">
+      <p>Info utili:</p>
+      <ul style="padding-left:14px;">
+        <li>Bagaglio a mano incluso</li>
+        <li>Cambio prenotazione online</li>
+        <li>Carta Freccia punti</li>
+      </ul>
+    </div>
+  </aside>
+
+  <main>
+    <h1 class="page-title">Risultati ricerca: Roma Termini &rarr; Milano Centrale, sabato 26 settembre 2026</h1>
+
+    <form class="search-form">
+      <div class="field">
+        <label for="da">Da</label>
+        <input id="da" type="text" value="Roma Termini">
+      </div>
+      <div class="field">
+        <label for="a">A</label>
+        <input id="a" type="text" value="Milano Centrale">
+      </div>
+      <div class="field">
+        <label for="data">Data</label>
+        <input id="data" type="text" value="26/09/2026">
+      </div>
+      <div class="field">
+        <label for="ora">Ora</label>
+        <input id="ora" type="text" value="06:00">
+      </div>
+      <div class="field">
+        <label for="pax">Passeggeri</label>
+        <input id="pax" type="text" value="1 Adulto">
+      </div>
+      <button type="button">Cerca</button>
+    </form>
+
+    <table class="results">
+      <thead>
+        <tr>
+          <th>Treno</th>
+          <th>Partenza</th>
+          <th>Arrivo</th>
+          <th>Durata</th>
+          <th>Prezzo</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="train-name">Frecciarossa 9502</span><br><span class="platform-info">Binario 1 est.</span></td>
+          <td>06:00 Roma Termini</td>
+          <td>08:55 Milano Centrale</td>
+          <td>2h 55m</td>
+          <td class="price">da 29,90 €</td>
+          <td><button class="buy">Acquista</button></td>
+        </tr>
+        <tr>
+          <td><span class="train-name">Italo NTV 8802</span><br><span class="platform-info">Binario 24</span></td>
+          <td>06:35 Roma Termini</td>
+          <td>09:20 Milano Centrale</td>
+          <td>2h 45m</td>
+          <td class="price">da 24,90 €</td>
+          <td><button class="buy">Acquista</button></td>
+        </tr>
+        <tr>
+          <td><span class="train-name">Frecciarossa 9504</span><br><span class="platform-info">Binario 4</span></td>
+          <td>07:00 Roma Termini</td>
+          <td>09:55 Milano Centrale</td>
+          <td>2h 55m</td>
+          <td class="price">da 34,90 €</td>
+          <td><button class="buy">Acquista</button></td>
+        </tr>
+        <tr>
+          <td><span class="train-name">Intercity 681</span><br><span class="platform-info">Binario 12</span></td>
+          <td>07:20 Roma Termini</td>
+          <td>13:47 Milano Centrale</td>
+          <td>6h 27m</td>
+          <td class="price">da 19,50 €</td>
+          <td><button class="buy">Acquista</button></td>
+        </tr>
+        <tr>
+          <td><span class="train-name">Frecciarossa 9506</span><br><span class="platform-info">Binario 1 est.</span></td>
+          <td>08:00 Roma Termini</td>
+          <td>10:55 Milano Centrale</td>
+          <td>2h 55m</td>
+          <td class="price">da 39,90 €</td>
+          <td><button class="buy">Acquista</button></td>
+        </tr>
+        <tr>
+          <td><span class="train-name">Italo NTV 8806</span><br><span class="platform-info">Binario 24</span></td>
+          <td>08:30 Roma Termini</td>
+          <td>11:18 Milano Centrale</td>
+          <td>2h 48m</td>
+          <td class="price">da 27,90 €</td>
+          <td><button class="buy">Acquista</button></td>
+        </tr>
+        <tr>
+          <td><span class="train-name">Regionale Veloce 3421</span><br><span class="platform-info">Binario 8</span></td>
+          <td>08:47 Roma Termini</td>
+          <td>16:02 Milano Centrale</td>
+          <td>7h 15m</td>
+          <td class="price">da 15,00 €</td>
+          <td><button class="buy">Acquista</button></td>
+        </tr>
+        <tr>
+          <td><span class="train-name">Frecciarossa 9508</span><br><span class="platform-info">Binario 5</span></td>
+          <td>09:00 Roma Termini</td>
+          <td>11:55 Milano Centrale</td>
+          <td>2h 55m</td>
+          <td class="price">da 29,90 €</td>
+          <td><button class="buy">Acquista</button></td>
+        </tr>
+        <tr>
+          <td><span class="train-name">Italo NTV 8810</span><br><span class="platform-info">Binario 24</span></td>
+          <td>09:35 Roma Termini</td>
+          <td>12:22 Milano Centrale</td>
+          <td>2h 47m</td>
+          <td class="price">da 22,90 €</td>
+          <td><button class="buy">Acquista</button></td>
+        </tr>
+        <tr>
+          <td><span class="train-name">Intercity Notte 793</span><br><span class="platform-info">Binario 2</span></td>
+          <td>10:15 Roma Termini</td>
+          <td>13:10 Milano Centrale</td>
+          <td>2h 55m</td>
+          <td class="price">da 32,90 €</td>
+          <td><button class="buy">Acquista</button></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="banner-pubblicitario ad" style="margin-top:12px;">
+      Pubblicità &mdash; Hotel a Milano Centrale, prenota ora e risparmia
+    </div>
+  </main>
+
+  <aside class="right-rail">
+    <div class="adsbox ad">
+      Offerta<br>SIM viaggio<br>Italia +5GB<br>solo 9,90€
+    </div>
+    <div class="adsbox ad">
+      Parcheggio<br>Stazione Termini<br>prenota online
+    </div>
+    <div style="font-size:10px; color:#bcbcbc;">
+      <p>Meteo Milano</p>
+      <p>26/09: 19&deg;C, variabile</p>
+    </div>
+  </aside>
+
+</div>
+
+<footer class="site-footer">
+  <ul>
+    <li><a href="#">Chi siamo</a></li>
+    <li><a href="#">Lavora con noi</a></li>
+    <li><a href="#">Contatti</a></li>
+    <li><a href="#">Note legali</a></li>
+    <li><a href="#">Privacy</a></li>
+    <li><a href="#">Accessibilità</a></li>
+  </ul>
+  <p>&copy; 2026 Treni Italia (copia offline) - Pagina dimostrativa generata per uso offline in IpoView. Tutti i dati sono di fantasia.</p>
+</footer>
+
+<div id="cookie-consent" class="cookie-banner">
+  <span>Questo sito utilizza cookie tecnici e di profilazione, anche di terze parti, per finalità pubblicitarie. Continuando la navigazione acconsenti all'uso dei cookie.</span>
+  <span class="cookie-buttons">
+    <button type="button">Rifiuta</button>
+    <button type="button">Accetta tutti</button>
+  </span>
+</div>
+
+</body>
+</html>

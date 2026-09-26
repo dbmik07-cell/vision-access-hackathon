@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1024">
+<title>Test adapter.js</title>
+<style>
+  body { font: 13px/1.3 Georgia, serif; margin: 0; background: #ddd; color: #777; }
+  #toolbar { position: fixed; top: 0; right: 0; z-index: 99; background: #333; padding: 6px; }
+  #toolbar button { font-size: 12px; }
+  header { position: sticky; top: 0; background: #0a3; color: #9f9; padding: 8px; }
+  nav a { margin-right: 10px; color: #ccc; }
+  .wrap { display: flex; gap: 20px; width: 1000px; }
+  main { flex: 3; text-align: justify; }
+  aside { flex: 1; background: #fafafa; color: #bbb; }
+  .hero { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Crect width='5' height='5' fill='%23888'/%3E%3C/svg%3E"); padding: 20px; color: #fff; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .grid div { background: #fff; color: #aaa; padding: 8px; }
+  .ad-box { background: yellow; height: 120px; }
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #cookie-banner { position: fixed; bottom: 0; left: 0; right: 0; background: #000; color: #fff; padding: 20px; }
+  input, button.site { border: 1px solid #eee; }
+  a.low { color: #9bf; }
+</style>
+</head>
+<body>
+<div id="toolbar" data-ipoview="ui">
+  <button id="bApply">Applica (dark, 26px, paragraph)</button>
+  <button id="bApplyNormal">Applica (original, 22.4px, normal)</button>
+  <button id="bApplyReader">Applica (light, Readability)</button>
+  <button id="bBig">Font 34px</button>
+  <button id="bReset">Reset (Esc)</button>
+</div>
+<header><nav><a href="#">Home</a><a href="#">Notizie</a><a href="#">Orari</a><a href="#">Contatti</a></nav></header>
+<div class="wrap">
+  <main>
+    <h1>Titolo della pagina di prova <span class="spin">*</span></h1>
+    <div class="hero">Testo bianco sopra un'immagine di sfondo a scacchi.</div>
+    <p>Questo è un primo paragrafo abbastanza lungo, scritto in grigio chiaro su grigio, con contrasto volutamente basso per verificare la passata di contrasto. Contiene anche <a class="low" href="#">un link azzurro chiaro</a> che dovrebbe restare blu ma più scuro.</p>
+    <p>Secondo paragrafo: il testo è giustificato dal sito ma deve diventare allineato a sinistra, con interlinea 1,5 e spaziatura tra lettere e parole secondo WCAG 1.4.12.</p>
+    <div class="ad-box ad-banner">PUBBLICITÀ</div>
+    <h2>Una griglia</h2>
+    <div class="grid"><div>Cella uno con testo</div><div>Cella due con testo</div><div>Cella tre con testo</div></div>
+    <h2>Un modulo</h2>
+    <form><label>Nome <input type="text"></label> <button class="site" type="button">Invia</button></form>
+    <p>Terzo paragrafo, per avere abbastanza testo nella modalità un paragrafo alla volta e provare i pulsanti Avanti e Indietro, lo swipe e le frecce della tastiera.</p>
+    <table><tr><th>Linea</th><th>Partenza</th><th>Arrivo</th><th>Note</th><th>Frequenza</th><th>Giorni</th></tr>
+      <tr><td>12</td><td>08:15</td><td>08:47</td><td>Via Roma</td><td>ogni 15 minuti</td><td>feriali</td></tr></table>
+  </main>
+  <aside><p>Colonna laterale con contenuti secondari.</p></aside>
+</div>
+<footer><p>Footer del sito, © 2026.</p></footer>
+<div id="cookie-banner">Usiamo i cookie. <button>Accetta</button></div>
+
+<script src="../hackaton/Resources/JS/adapter.js"></script>
+<script>
+  // Finto message handler: in Safari desktop non esiste window.webkit.messageHandlers
+  if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ipoview)) {
+    window.webkit = window.webkit || {};
+    window.webkit.messageHandlers = window.webkit.messageHandlers || {};
+    window.webkit.messageHandlers.ipoview = { postMessage: (m) => console.log('[ipoview →Swift]', m) };
+  }
+  // Formato: docs/data-contracts.md sezione 9 ("paragraph" è un'estensione post-MVP)
+  const base = {
+    schemaVersion: '1.0',
+    context: { referenceDistanceMm: 400, ppi: 460, nativeScale: 3 },
+    text: { fontFamily: 'Atkinson Hyperlegible', fontSizeCssPx: 26, lineHeight: 1.5, letterSpacingEm: 0.12, wordSpacingEm: 0.16, paragraphSpacingEm: 2, align: 'left' },
+    layout: { singleColumn: true, maxLineWidthCh: 30, mode: 'paragraph', moveEdgeElements: true },
+    color: { theme: 'dark', background: '#121212', text: '#E8E6E3', minTextContrast: 7, minUIContrast: 4.67, preserveHue: true, imageBrightness: 0.85 },
+    controls: { underlineLinks: true, minTargetPt: 48, focusOutlinePx: 3 },
+    cleanup: { removeCookieBanners: true, stopAnimations: true, useReadability: false },
+    speech: { tapToSpeak: true, rateWpm: null },
+    screen: { brightness: null },
+  };
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  document.getElementById('bApply').onclick = () => IpoView.apply(base);
+  document.getElementById('bApplyNormal').onclick = () => {
+    const p = clone(base); p.text.fontSizeCssPx = 22.4; p.layout.mode = 'normal'; p.layout.maxLineWidthCh = 60; p.layout.moveEdgeElements = false;
+    p.color = { theme: 'original', background: null, text: null, minTextContrast: 4.5, minUIContrast: 3, preserveHue: true, imageBrightness: 1 };
+    p.speech.tapToSpeak = false;
+    IpoView.apply(JSON.stringify(p));   // anche come stringa JSON
+  };
+  document.getElementById('bApplyReader').onclick = () => {
+    const p = clone(base); p.layout.mode = 'normal'; p.layout.maxLineWidthCh = 60; p.cleanup.useReadability = true;
+    p.color = { theme: 'light', background: '#FFFDF7', text: '#1A1A1A', minTextContrast: 7, minUIContrast: 4.67, preserveHue: true, imageBrightness: 1 };
+    IpoView.apply(p);
+  };
+  document.getElementById('bBig').onclick = () => IpoView.setFontSizePx(34);
+  document.getElementById('bReset').onclick = () => IpoView.reset();
+  // Esc = reset (la modalità paragrafo copre la toolbar)
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') IpoView.reset(); });
+</script>
+</body>
+</html>

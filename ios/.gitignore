@@ -1,0 +1,6 @@
+# File di sistema del volume ExFAT e di Xcode
+._*
+.DS_Store
+xcuserdata/
+DerivedData/
+*.xcuserstate
