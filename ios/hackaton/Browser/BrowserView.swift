@@ -63,6 +63,9 @@ struct BrowserView: View {
                 model.load(url)
             }
             if args.contains("-perMe") { model.adapted = true }
+            if args.contains("-reader") {
+                Task { try? await Task.sleep(for: .seconds(6)); model.readerOn = true }
+            }
             #endif
         }
         .onDisappear { model.stopFollowingDistance() }
@@ -117,6 +120,8 @@ struct BrowserView: View {
                 .accessibilityLabel(model.showStart || model.domain.isEmpty ? "Cerca o scrivi un indirizzo" : "Pagina \(model.domain)")
                 .accessibilityHint("Tocca per cercare o scrivere un indirizzo")
 
+                if !model.showStart { readerButton(look) }
+
                 Menu {
                     Button("Ecco come vedi", systemImage: "eye") { app.route = .results }
                     Button("Testo più grande", systemImage: "plus.magnifyingglass") { adjustText(+0.1) }
@@ -137,6 +142,28 @@ struct BrowserView: View {
         .padding(.top, 4)
         .padding(.bottom, 8)
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+    }
+
+    /// "Reader": un paragrafo alla volta, solo se la persona lo tocca; un secondo tocco torna alla pagina.
+    private func readerButton(_ look: AppAppearance) -> some View {
+        Button {
+            model.readerOn.toggle()
+            Haptics.tick()
+        } label: {
+            Image(systemName: "doc.plaintext")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(model.readerOn ? look.onAccent : look.foreground)
+                .frame(width: 48, height: 48)
+                .background { if model.readerOn { Circle().fill(look.accent) } }
+                .frame(width: 56, height: 56)
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .disabled(!model.adapted)
+        .opacity(model.adapted ? 1 : 0.35)
+        .accessibilityLabel("Reader, un paragrafo alla volta")
+        .accessibilityAddTraits(model.readerOn ? .isSelected : [])
+        .accessibilityHint(model.adapted ? "" : "Disponibile con Per me")
     }
 
     @ViewBuilder private var domainLabel: some View {
@@ -163,7 +190,7 @@ struct BrowserView: View {
         return ViewThatFits(in: .horizontal) {
             HStack(spacing: 0) {
                 navButtons
-                if showDistance { distanceLabel.padding(.horizontal, 6) }
+                if showDistance { distanceLabel(stacked: false).padding(.horizontal, 6) }
                 Spacer(minLength: 4)
                 modeToggle(look, expand: false)
             }
@@ -174,7 +201,7 @@ struct BrowserView: View {
                 HStack(spacing: 0) {
                     navButtons
                     Spacer(minLength: 8)
-                    if showDistance { distanceLabel.padding(.trailing, 14) }
+                    if showDistance { distanceLabel(stacked: true).padding(.trailing, 14) }
                 }
                 modeToggle(look, expand: true)
             }
@@ -199,14 +226,21 @@ struct BrowserView: View {
         }
     }
 
-    private var distanceLabel: some View {
-        Text(tracker.faceVisible || !FaceDistanceTracker.isSupported ? "\(Int(tracker.effectiveCM.rounded())) cm" : "– cm")
+    /// "34 cm · 18 pt": distanza e dimensione effettiva del testo del corpo dopo l'adattamento.
+    /// Sulla barra a due righe le due parti vanno una sotto l'altra, così i pulsanti restano nella capsula.
+    private func distanceLabel(stacked: Bool) -> some View {
+        let cm = tracker.faceVisible || !FaceDistanceTracker.isSupported ? "\(Int(tracker.effectiveCM.rounded())) cm" : "– cm"
+        let size: String? = model.showStart || !model.adapted ? nil : model.bodyText.map {
+            $0.original ? "original size" : "\(Int($0.px.rounded())) pt"
+        }
+        return Text(size.map { stacked ? "\(cm)\n\($0)" : "\(cm) · \($0)" } ?? cm)
+            .multilineTextAlignment(.trailing)
             .font(.ipo(.subheadline, bold: true))
             .monospacedDigit()
-            .lineLimit(1)
+            .lineLimit(2)
             .fixedSize()
-            .accessibilityLabel("Distanza dal viso")
-            .accessibilityValue("\(Int(tracker.effectiveCM.rounded())) centimetri")
+            .accessibilityLabel("Distanza dal viso e dimensione del testo")
+            .accessibilityValue("\(Int(tracker.effectiveCM.rounded())) centimetri" + (size.map { ", testo \($0)" } ?? ""))
     }
 
     private func modeToggle(_ look: AppAppearance, expand: Bool) -> some View {

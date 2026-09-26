@@ -36,7 +36,21 @@ enum OfflinePage: String, CaseIterable, Identifiable {
 @Observable
 final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler, WKUIDelegate {
     @ObservationIgnored let webView: WKWebView
-    var adapted = true { didSet { refreshScripts(); applyToCurrentPage() } }
+    var adapted = true {
+        didSet {
+            if !adapted { readerOn = false; bodyText = nil }
+            refreshScripts(); applyToCurrentPage()
+        }
+    }
+    /// "Reader": un paragrafo alla volta, solo se la persona lo accende. Si spegne cambiando pagina.
+    var readerOn = false {
+        didSet {
+            guard readerOn != oldValue, adapted, !showStart else { return }
+            js("typeof IpoView!=='undefined' && IpoView.setReader(\(readerOn))")
+        }
+    }
+    /// Dimensione effettiva del testo del corpo dopo l'adattamento (da adapter.js); original = il sito era già più grande.
+    private(set) var bodyText: (px: Double, original: Bool)?
     /// Estensioni post-MVP (R5 un paragrafo alla volta, R9 lettura grande) sopra il piano del contratto.
     var extensionsEnabled = true { didSet { if oldValue != extensionsEnabled { rebuildPlan() } } }
     var addressText = ""
@@ -109,8 +123,9 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
         let insets = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
         guard webView.obscuredContentInsets != insets else { return }
         webView.obscuredContentInsets = insets
-        // obscuredContentInsets non allunga lo scorrimento: in fondo serve lo spazio della barra
-        webView.scrollView.contentInset.bottom = bottom
+        // obscuredContentInsets non allunga lo scorrimento: servono anche i margini della scroll view,
+        // altrimenti dopo uno scroll della pagina (es. scrollTo(0,0)) l'inizio resta sotto la barra
+        webView.scrollView.contentInset = UIEdgeInsets(top: top, left: 0, bottom: bottom, right: 0)
         webView.scrollView.verticalScrollIndicatorInsets = insets
     }
 
@@ -158,7 +173,7 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     private func applyToCurrentPage() {
         guard !showStart, webView.url != nil else { return }
         if adapted, let plan {
-            js("typeof IpoView!=='undefined' && (IpoView.apply(\(plan.json())), IpoView.setFontSizePx(\(appliedFontPx)))")
+            js("typeof IpoView!=='undefined' && (IpoView.apply(\(plan.json())), IpoView.setFontSizePx(\(appliedFontPx)), IpoView.setReader(\(readerOn)))")
             if let b = plan.screen.brightness { ScreenBrightness.lock(b) }
         } else {
             js("typeof IpoView!=='undefined' && IpoView.reset()")
@@ -166,16 +181,12 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
         }
     }
 
-    /// Estensioni post-MVP (fuori dai casi golden): R5 con campo sotto 10° → un paragrafo alla volta;
-    /// R9 con meno di 12 caratteri per riga sullo schermo → lettura grande con la voce.
+    /// Estensione post-MVP (fuori dai casi golden): R9 con meno di 12 caratteri per riga sullo schermo →
+    /// nel Reader si tocca il paragrafo per ascoltarlo. Non cambia mai layout.mode: resta "normal" (contratto).
     static func applyPostMVPExtensions(_ plan: inout AdaptationPlan, profile: VisualProfile) {
-        if let r = profile.visualField?.eyes.map(\.fieldRadiusDeg).max(), profile.visualField?.hasProblem == true, r < 10 {
-            plan.layout.mode = "paragraph"
-        }
         let screenCh = (Double(DeviceDisplay.screenSizePt.width) - 24)
             / (plan.text.fontSizeCssPx * (ContractParameters.fontZeroWidthEm + plan.text.letterSpacingEm))
         if screenCh < 12 {
-            plan.layout.mode = "large-reading"
             plan.speech.tapToSpeak = true
             if let wpm = profile.reading?.maxReadingSpeedWpm, profile.reading?.measured == true {
                 plan.speech.rateWpm = min(220, max(80, wpm))
@@ -244,7 +255,7 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
 
     func open(_ page: OfflinePage) { if let url = page.url { load(url) } }
 
-    func goHome() { showStart = true; loadError = nil }
+    func goHome() { readerOn = false; showStart = true; loadError = nil }
     func goBack() { if showStart { showStart = false } else { webView.goBack() } }
     func goForward() { webView.goForward() }
     func reload() { webView.reload() }
@@ -254,6 +265,8 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     nonisolated func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         MainActor.assumeIsolated {
             self.currentURL = webView.url
+            self.readerOn = false
+            self.bodyText = nil
             self.addressText = webView.url?.isFileURL == true ? "Pagina salvata" : (webView.url?.absoluteString ?? "")
         }
     }
@@ -291,6 +304,17 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
                 let text = body["text"] as? String ?? ""
                 let wpm = body["rateWpm"] as? Double ?? plan?.speech.rateWpm ?? 140
                 Voice.shared.read(text, wpm: wpm)
+            case "bodyText":
+                if let px = body["px"] as? Double, adapted {
+                    bodyText = (px, body["original"] as? Bool ?? false)
+                }
+            case "readerUnavailable":
+                readerOn = false
+                Voice.shared.say("Su questa pagina il Reader non è disponibile.")
+            case "pageshow":
+                // Pagina tornata dalla cache avanti/indietro: stato di adapter.js vecchio → reset + apply una volta sola
+                readerOn = false
+                applyToCurrentPage()
             case "log":
                 print("[adapter.js]", body["message"] ?? "")
             default:

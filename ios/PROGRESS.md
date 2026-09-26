@@ -84,6 +84,10 @@ Impostazioni → tocca 5 volte la riga della versione → "Test accorciati". Pas
 - Home: schede con angoli di 20 pt, "Pagine salvate" in elenco compatto.
 - adapter.js: spaziature R2, allineamento e sillabazione solo sul testo di lettura; niente bordi aggiunti a campi e pulsanti (contorno solo sul focus); link sottili solo nel testo di lettura; una colonna solo per i blocchi di contenuto; barre e schede che andrebbero a capo restano su una riga e scorrono di lato.
 - Provato nel simulatore (iPhone 17 Pro e 17e) su google.com (home e risultati), un articolo del Corriere e la pagina salvata degli orari, con il profilo del telefono e i preset macchia centrale e tunnel.
+- `layout.mode` resta sempre "normal": la pagina è sempre quella del sito adattata con R0–R8. "Un paragrafo alla volta" è il pulsante Reader nella barra in alto, spento di default e spento cambiando pagina; l'estensione post-MVP R9 aggiunge solo "tocca per ascoltare" dentro il Reader.
+- Avanti/indietro dalla cache: adapter.js manda `pageshow` (persisted) e Swift riapplica il piano una volta sola (apply fa reset prima).
+- Campi, pulsanti e moduli (e ciò che contiene un campo): solo dimensione del testo e contrasto; il testo dei controlli resta il più grande che ci sta, mai più piccolo del sito. R2 e sillabazione solo su testo di lettura di almeno 40 caratteri.
+- Indicatore "cm · pt" con la dimensione effettiva del corpo del testo ("original size" se il sito era già più grande).
 - `nativeScale` stampato all'avvio: sull'iPhone 15 senza Zoom vale 3,0 (393 × 852 pt, 1179 × 2556 px).
 
 ## Limiti noti

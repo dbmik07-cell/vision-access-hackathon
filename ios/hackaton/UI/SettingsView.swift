@@ -27,7 +27,7 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.inline)
                     .labelsHidden()
-                    Toggle("Estensioni post-MVP: un paragrafo alla volta (R5) e lettura grande (R9)", isOn: $app.postMVPExtensions)
+                    Toggle("Estensione post-MVP: nel Reader tocca il paragrafo per ascoltarlo (R9)", isOn: $app.postMVPExtensions)
                 }
 
                 Section("Correzioni manuali") {

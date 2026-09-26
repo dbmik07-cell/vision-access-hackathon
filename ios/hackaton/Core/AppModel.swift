@@ -38,7 +38,7 @@ final class AppModel {
         didSet { UserDefaults.standard.set(fieldPreset.rawValue, forKey: "fieldPreset") }
     }
 
-    /// Estensioni post-MVP sopra il piano del contratto: un paragrafo alla volta (R5) e lettura grande (R9).
+    /// Estensione post-MVP sopra il piano del contratto: nel Reader si tocca il paragrafo per ascoltarlo (R9).
     var postMVPExtensions: Bool {
         didSet { UserDefaults.standard.set(postMVPExtensions, forKey: "postMVPExtensions") }
     }
