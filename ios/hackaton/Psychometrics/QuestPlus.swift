@@ -239,7 +239,7 @@ nonisolated enum QuestConfigs {
 
     /// Contrasto: t e stimoli su log10(C di Weber) in [−2,1, 0]. logCS = −t.
     static func contrast() -> QuestPlus {
-        QuestPlus(thresholds: QuestPlus.grid(from: P.contrastThresholdMin, to: P.contrastThresholdMax, step: P.thresholdStep),
+        QuestPlus(thresholds: QuestPlus.grid(from: P.contrastThresholdMin, to: P.contrastThresholdMax, step: P.contrastThresholdStep),
                   slopes: P.contrastBetas,
                   function: PsychometricFunction(guess: P.guessRate, lapse: P.lapseRate, increasingWithStimulus: true))
     }
@@ -256,14 +256,13 @@ nonisolated enum QuestConfigs {
     }
 
     /// Affidabilità MVP: reliable se q97,5 − q2,5 ≤ W, altrimenti doubtful con flag wideInterval.
-    static func reliability(_ q: QuestPlus) -> (ContractReliability, [String]) {
+    static func reliability(_ q: QuestPlus, maxCiWidth: Double, stopSd: Double, maxTrials: Int = P.maxTrials) -> (ContractReliability, [String]) {
         var flags: [String] = []
         let width = q.ci95.upperBound - q.ci95.lowerBound
-        let rel: ContractReliability = width <= P.reliabilityMaxCiWidth ? .reliable : .doubtful
+        let rel: ContractReliability = width <= maxCiWidth ? .reliable : .doubtful
         if rel == .doubtful { flags.append("wideInterval") }
-        if q.trials.count >= P.maxTrials && q.thresholdSD >= (q.thresholds.first! < -1 ? P.contrastTargetSd : P.acuityTargetSd) {
-            flags.append("maxTrialsReached")
-        }
+        // Solo informativo: stop a 30 senza raggiungere la SD obiettivo.
+        if q.trials.count >= maxTrials && q.thresholdSD >= stopSd { flags.append("maxTrialsReached") }
         return (rel, flags)
     }
 }

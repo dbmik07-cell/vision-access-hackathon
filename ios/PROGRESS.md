@@ -72,11 +72,11 @@ Impostazioni → tocca 5 volte la riga della versione → "Test accorciati". Pas
 - Preset verificati nel simulatore: macchia centrale (interlinea 2, spaziature larghe), tunnel 5° (un paragrafo alla volta con le estensioni post-MVP; righe di 15 caratteri senza).
 
 ## Allineamento al contratto dati v1.0 ✅
-- `hackaton/Contract/ContractParameters.swift` (tutti i numeri, da sostituire con shared/parameters.json).
+- `shared/parameters.json` e `shared/devices.json` inclusi nel bundle e letti a runtime (`hackaton/Contract/ContractParameters.swift`).
 - QUEST+ sezione 5 (facilità, mediana, quantili a bin, spareggio, W = 0,30), fascia 35–45 cm, censura, lettera del contrasto fino a 8°.
 - VisualProfile e AdaptationPlan con i nomi delle sezioni 8 e 9, R0–R8, fontSizeCssPx a 400 mm × d/400, righe in ch, tema original, tema chiaro #FAF7F0.
 - adapter.js sul nuovo piano (font minimo con max(), viewport forzato, ch, temi original/light/dark, null).
-- Nessun caso golden in shared/examples/ per ora.
+- Test golden (`hackatonTests/GoldenTests.swift`): 14 casi rules, 6 summary, 3 geometry, traccia QUEST+ `tiny-hand-computed` tutti OK; tracce pending eseguite come controllo di plausibilità (`acuity-max-trials` da rivedere: si ferma a 18 prove).
 
 ## Limiti noti
 - R1 del contratto (limite prudente + 0,4) con acuità ridotta dà comunque testo grande (≈ 47 pt a 40 cm per 0,42 logMAR): con le estensioni post-MVP scatta la lettura grande (R9). Si riduce con "Testo più piccolo" (R10) o disattivando le estensioni.

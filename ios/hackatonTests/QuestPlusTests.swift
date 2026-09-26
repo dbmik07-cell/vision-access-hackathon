@@ -118,15 +118,15 @@ struct QuestPlusTests {
 
     @Test func reliabilityFromIntervalWidth() {
         var q = QuestConfigs.acuity()
-        #expect(QuestConfigs.reliability(q).0 == .doubtful)
-        #expect(QuestConfigs.reliability(q).1.contains("wideInterval"))
+        #expect(QuestConfigs.reliability(q, maxCiWidth: 0.30, stopSd: 0.05).0 == .doubtful)
+        #expect(QuestConfigs.reliability(q, maxCiWidth: 0.30, stopSd: 0.05).1.contains("wideInterval"))
         var rng = SeededRNG(state: 1)
         for _ in 0..<30 {
             let s = q.nextStimulus(candidates: q.thresholds)!
             q.update(stimulus: s, correct: Double.random(in: 0..<1, using: &rng) < q.function.pCorrect(stimulus: s, threshold: 0.4, slope: 35))
         }
         let w = q.ci95.upperBound - q.ci95.lowerBound
-        #expect(QuestConfigs.reliability(q).0 == (w <= 0.30 ? .reliable : .doubtful))
+        #expect(QuestConfigs.reliability(q, maxCiWidth: 0.30, stopSd: 0.05).0 == (w <= 0.30 ? .reliable : .doubtful))
     }
 }
 

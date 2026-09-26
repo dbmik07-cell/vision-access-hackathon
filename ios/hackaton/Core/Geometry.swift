@@ -38,9 +38,10 @@ nonisolated enum DeviceDisplay {
         "iPhone18,2": ("iPhone 17 Pro Max", 460), "iPhone18,4": ("iPhone Air", 460),
     ]
 
-    static var modelName: String { ppiTable[modelIdentifier]?.name ?? modelIdentifier }
-    /// Contratto (sezione 7): modello assente dalla tabella → nessun ppi stimato, il test non parte.
-    static var ppi: Double? { ppiTable[modelIdentifier]?.ppi }
+    /// Tabella dei modelli da shared/devices.json (contratto, sezione 2); ppiTable sopra resta solo come riferimento.
+    static var modelName: String { SharedContract.devices[modelIdentifier]?.name ?? modelIdentifier }
+    /// Contratto (sezione 7): modello assente da devices.json → nessun ppi stimato, il test non parte.
+    static var ppi: Double? { SharedContract.devices[modelIdentifier]?.ppi }
     static var isSupportedModel: Bool { ppi != nil }
 
     /// Pixel fisici per punto iOS letto a runtime (3 sulla maggior parte dei modelli, 2,88 sui mini, cambia con lo Zoom).
@@ -93,6 +94,16 @@ nonisolated enum VisualAngle {
     /// Altezza della E (5 tratti) in pixel per un logMAR alla distanza data.
     static func letterHeightPx(logMAR: Double, distanceMM: Double) -> Double {
         px(mm: mm(arcmin: 5 * strokeArcmin(logMAR: logMAR), distanceMM: distanceMM))
+    }
+
+    /// Stimoli ammissibili per l'acuità (contratto, sezione 7): indici della griglia con
+    /// tratto ≥ 2 px del dispositivo alla distanza data e lettera interamente nel lato corto dello schermo.
+    static func admissibleAcuityIndices(grid: [Double], distanceMm: Double, ppi: Double, screenShortSideDevicePx: Double) -> [Int] {
+        grid.indices.filter { i in
+            let heightMm = mm(arcmin: ContractParameters.letterHeightArcminAtZero * pow(10, grid[i]), distanceMM: distanceMm)
+            let heightPx = px(mm: heightMm, ppi: ppi)
+            return heightPx / 5 >= ContractParameters.minStrokeDevicePx && heightPx <= screenShortSideDevicePx
+        }
     }
 
     /// logMAR effettivo di una E alta `heightPx` vista da `distanceMM`.

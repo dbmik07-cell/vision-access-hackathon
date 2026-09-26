@@ -16,7 +16,14 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXBuildFile section */
+		B00000000000000000000001 /* parameters.json in Resources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000001 /* parameters.json */; };
+		B00000000000000000000002 /* devices.json in Resources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000002 /* devices.json */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
+		C00000000000000000000001 /* parameters.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = parameters.json; path = ../shared/parameters.json; sourceTree = SOURCE_ROOT; };
+		C00000000000000000000002 /* devices.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = devices.json; path = ../shared/devices.json; sourceTree = SOURCE_ROOT; };
 		000000000000000000000120 /* hackaton.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = hackaton.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000120 /* hackatonTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = hackatonTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -48,11 +55,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		C00000000000000000000010 /* shared */ = {
+			isa = PBXGroup;
+			children = (
+				C00000000000000000000001 /* parameters.json */,
+				C00000000000000000000002 /* devices.json */,
+			);
+			name = shared;
+			sourceTree = "<group>";
+		};
 		000000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
 				000000000000000000000010 /* hackaton */,
 				A00000000000000000000010 /* hackatonTests */,
+				C00000000000000000000010 /* shared */,
 				000000000000000000000020 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -151,6 +168,8 @@
 		000000000000000140000000 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
+				B00000000000000000000001 /* parameters.json in Resources */,
+				B00000000000000000000002 /* devices.json in Resources */,
 			);
 		};
 		A00000000000000140000000 /* Resources */ = {

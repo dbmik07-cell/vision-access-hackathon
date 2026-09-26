@@ -13,7 +13,7 @@ enum ProfileBuilder {
 
     static func acuityBlock(_ e: ETestEngine) -> AcuityBlock {
         let q = e.quest
-        var (rel, flags) = QuestConfigs.reliability(q)
+        var (rel, flags) = QuestConfigs.reliability(q, maxCiWidth: P.acuityReliableMaxCiWidth, stopSd: P.acuityTargetSd)
         var median = q.thresholdMedian
         var ci = [q.ci95.lowerBound, q.ci95.upperBound]
         let limit = e.displayLimit   // il più piccolo stimolo ammissibile durante il test
@@ -32,7 +32,7 @@ enum ProfileBuilder {
 
     static func contrastBlock(_ e: ETestEngine, letterCapped: Bool) -> ContrastBlock {
         let q = e.quest
-        var (rel, flags) = QuestConfigs.reliability(q)
+        var (rel, flags) = QuestConfigs.reliability(q, maxCiWidth: P.contrastReliableMaxCiWidth, stopSd: P.contrastTargetSd)
         if letterCapped { flags.append("contrastLetterSizeCapped") }
         // logCS = −t: la conversione avviene solo qui, e gli estremi di ci95 si scambiano.
         var median = -q.thresholdMedian

@@ -109,9 +109,9 @@ final class ETestEngine {
 
     // MARK: Stimoli possibili adesso
 
-    /// Lettera interamente nello schermo: lato corto in pixel del dispositivo (con un piccolo margine).
+    /// Lettera interamente nello schermo: lato corto in pixel del dispositivo.
     private var maxLetterPx: Double {
-        Double(DeviceDisplay.screenSizePt.width) * DeviceDisplay.nativeScale * 0.95
+        Double(min(DeviceDisplay.screenSizePt.width, DeviceDisplay.screenSizePt.height)) * DeviceDisplay.nativeScale
     }
 
     /// Acuità: dimensioni ricalcolate alla distanza attuale.
@@ -119,10 +119,8 @@ final class ETestEngine {
     private func acuityCandidates(distanceMM: Double) -> [Double] {
         // Stessa griglia di t, filtrata: tratto ≥ 2 px del dispositivo e lettera nello schermo.
         let all = quest.thresholds
-        let ok = all.filter {
-            let h = VisualAngle.letterHeightPx(logMAR: $0, distanceMM: distanceMM)
-            return h / 5 >= ContractParameters.minStrokeDevicePx && h <= maxLetterPx
-        }
+        let ok = VisualAngle.admissibleAcuityIndices(grid: all, distanceMm: distanceMM, ppi: DeviceDisplay.ppi ?? 460,
+                                                    screenShortSideDevicePx: maxLetterPx).map { all[$0] }
         if !ok.isEmpty { return ok }
         return [VisualAngle.logMAR(letterHeightPx: maxLetterPx, distanceMM: distanceMM)]
     }

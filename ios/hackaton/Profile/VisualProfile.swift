@@ -127,6 +127,11 @@ nonisolated struct FieldPoint: Codable, Sendable, Equatable {
     var sensitivity: Double       // livelli 0...10 (relativi, non dB Humphrey)
     var sd: Double
     var seen: Bool
+
+    // Nomi del contratto (sezione 8): xDeg, yDeg.
+    enum CodingKeys: String, CodingKey {
+        case x = "xDeg", y = "yDeg", sensitivity, sd, seen
+    }
 }
 
 nonisolated enum FieldPattern: String, Codable, Sendable {

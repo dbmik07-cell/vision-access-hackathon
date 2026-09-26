@@ -33,7 +33,7 @@ nonisolated enum RulesEngine {
 
     /// θ = 5′·10^s (altezza della x, MNREAD); h_x = 400 mm · θ_rad; font_mm = h_x / r_x.
     static func fontSizeMm(targetLogMAR s: Double, distanceMm: Double = P.referenceDistanceMm) -> Double {
-        let thetaRad = P.xHeightArcminAtZero * pow(10, s) / 60 * .pi / 180
+        let thetaRad = P.xHeightArcminAtZero * pow(10, s) / 60 * .pi / 180   // 5′·10^s in radianti
         return distanceMm * thetaRad / P.fontXHeightRatio
     }
 
@@ -61,7 +61,7 @@ nonisolated enum RulesEngine {
             lineHeight: central ? P.centralLineHeight : P.wcagLineHeight,
             letterSpacingEm: central ? P.centralLetterSpacingEm : P.wcagLetterSpacingEm,
             wordSpacingEm: central ? P.centralWordSpacingEm : P.wcagWordSpacingEm,
-            paragraphSpacingEm: P.wcagParagraphSpacingEm, align: "left")
+            paragraphSpacingEm: central ? P.centralParagraphSpacingEm : P.wcagParagraphSpacingEm, align: "left")
 
         // R2: lunghezza della riga in ch, indipendente dalla distanza.
         // R = raggio dell'occhio migliore; L_max = 2 · 400 · tan(R) · 0,8; ch = L_max / (font_mm · zeroWidthEm).
@@ -92,7 +92,7 @@ nonisolated enum RulesEngine {
         }
         let color = AdaptationPlan.Color(
             theme: theme, background: bg, text: fg, minTextContrast: minText,
-            minUIContrast: max(3, minText * 3 / 4.5), preserveHue: true,
+            minUIContrast: max(P.minUIContrastFloor, minText * P.minUIContrastScale), preserveHue: true,
             imageBrightness: (photophobia || theme == "dark") ? P.dimmedImageBrightness : 1)
 
         // R5–R8 e campi restanti.
@@ -111,10 +111,14 @@ nonisolated enum RulesEngine {
 
     /// Tabella R3.
     static func minTextContrast(logCS x: Double) -> Double {
-        if x >= P.contrastNormalMin { return 4.5 }
-        if x >= P.contrastBorderlineMin { return 7 }
-        if x >= P.contrastReducedMin { return 12 - 10 * (x - 1.0) }
-        return 15
+        if x >= P.contrastNormalMin { return P.textContrastNormal }
+        if x >= P.contrastBorderlineMin { return P.textContrastBorderline }
+        if x >= P.contrastReducedMin {
+            // Lineare nella fascia ridotta: 12 a 1,0 → 7 a 1,5, cioè 12 − 10 (x − 1,0).
+            let slope = (P.textContrastReducedUpper - P.textContrastReducedLower) / (P.contrastBorderlineMin - P.contrastReducedMin)
+            return P.textContrastReducedLower + slope * (x - P.contrastReducedMin)
+        }
+        return P.textContrastSeverelyReduced
     }
 
     // MARK: Spiegazioni per la schermata dei risultati

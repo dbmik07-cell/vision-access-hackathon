@@ -101,5 +101,5 @@ nonisolated struct ViewingContext: Sendable, Equatable {
     var nativeScale: Double
 
     /// Millimetri → CSS px (= punti iOS): mm · ppi / (25,4 · nativeScale).
-    func cssPx(mm: Double) -> Double { mm * ppi / (25.4 * nativeScale) }
+    func cssPx(mm: Double) -> Double { mm * ppi / (ContractParameters.mmPerInch * nativeScale) }
 }
