@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "device": {
+    "modelIdentifier": "iPhone15,4",
+    "ppi": 460,
+    "nativeScale": 3
+  },
+  "acuity": {
+    "source": "preset",
+    "logMAR": 0.4,
+    "ci95": [
+      0.3,
+      0.5
+    ],
+    "reliability": "reliable",
+    "flags": [],
+    "whoCategory": "mild"
+  },
+  "contrast": {
+    "source": "preset",
+    "logCS": 1.8,
+    "ci95": [
+      1.7,
+      1.9
+    ],
+    "reliability": "reliable",
+    "flags": [],
+    "band": "normal"
+  }
+}

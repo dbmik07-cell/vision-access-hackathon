@@ -1,5 +1,191 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "visual-profile",
-  "$comment": "Placeholder only; accepts any JSON value. Fields and constraints must be agreed during /grill-with-docs before application validation."
+  "$id": "https://github.com/dbmik07-cell/vision-access-hackathon/shared/visual-profile.schema.json",
+  "title": "VisualProfile",
+  "description": "Functional visual profile (not a medical diagnosis). Contract: docs/data-contracts.md section 8. Optional blocks are absent when not measured.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "device", "acuity", "contrast", "summary"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "device": { "$ref": "#/$defs/device" },
+    "acuity": { "$ref": "#/$defs/acuity" },
+    "contrast": { "$ref": "#/$defs/contrast" },
+    "reading": { "$ref": "#/$defs/reading" },
+    "amsler": { "$ref": "#/$defs/amsler" },
+    "visualField": { "$ref": "#/$defs/visualField" },
+    "light": { "$ref": "#/$defs/light" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "userAdjustments": { "$ref": "#/$defs/userAdjustments" }
+  },
+  "$defs": {
+    "source": { "enum": ["measured", "preset"] },
+    "reliability": { "enum": ["reliable", "doubtful", "unreliable"] },
+    "flags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["wideInterval", "maxTrialsReached", "contrastLetterSizeCapped"] }
+    },
+    "interval": {
+      "description": "[lower, upper] posterior quantiles 2.5% and 97.5%",
+      "type": "array",
+      "prefixItems": [{ "type": "number" }, { "type": "number" }],
+      "items": false,
+      "minItems": 2
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modelIdentifier", "ppi", "nativeScale"],
+      "properties": {
+        "modelIdentifier": { "type": "string", "pattern": "^iPhone[0-9]+,[0-9]+$" },
+        "ppi": { "type": "number", "exclusiveMinimum": 0 },
+        "nativeScale": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "acuity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "logMAR", "ci95", "reliability", "flags", "whoCategory"],
+      "properties": {
+        "source": { "$ref": "#/$defs/source" },
+        "logMAR": { "type": "number", "minimum": -0.3, "maximum": 1.8 },
+        "ci95": { "$ref": "#/$defs/interval" },
+        "reliability": { "$ref": "#/$defs/reliability" },
+        "flags": { "$ref": "#/$defs/flags" },
+        "whoCategory": { "enum": ["none", "mild", "moderate", "severe", "blindness"] },
+        "trials": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "displayLimitLogMAR": { "type": "number" },
+        "censoredAtDisplayLimit": { "type": "boolean" }
+      },
+      "if": { "properties": { "source": { "const": "measured" } } },
+      "then": { "required": ["trials", "displayLimitLogMAR", "censoredAtDisplayLimit"] }
+    },
+    "contrast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "logCS", "ci95", "reliability", "flags", "band"],
+      "properties": {
+        "source": { "$ref": "#/$defs/source" },
+        "logCS": { "type": "number", "minimum": 0, "maximum": 2.1 },
+        "ci95": { "$ref": "#/$defs/interval" },
+        "reliability": { "$ref": "#/$defs/reliability" },
+        "flags": { "$ref": "#/$defs/flags" },
+        "band": { "enum": ["normal", "borderline", "reduced", "severelyReduced"] },
+        "trials": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "ceilingLogCS": { "type": "number" },
+        "censoredAtCeiling": { "type": "boolean" }
+      },
+      "if": { "properties": { "source": { "const": "measured" } } },
+      "then": { "required": ["trials", "ceilingLogCS", "censoredAtCeiling"] }
+    },
+    "reading": {
+      "description": "Post-MVP. Reserved; fields to be agreed in a MINOR version.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": { "source": { "$ref": "#/$defs/source" } }
+    },
+    "amslerEye": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["distortedAreaDeg2", "missingAreaDeg2", "centralInvolved"],
+      "properties": {
+        "distortedAreaDeg2": { "type": "number", "minimum": 0 },
+        "missingAreaDeg2": { "type": "number", "minimum": 0 },
+        "centralInvolved": { "type": "boolean" },
+        "cells": {
+          "description": "Reduced central grid, 10 x 10 cells of 1 deg: 0 normal, 1 distorted, 2 missing",
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 10,
+          "items": {
+            "type": "array",
+            "minItems": 10,
+            "maxItems": 10,
+            "items": { "enum": [0, 1, 2] }
+          }
+        }
+      }
+    },
+    "amsler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "right", "left"],
+      "properties": {
+        "source": { "$ref": "#/$defs/source" },
+        "right": { "$ref": "#/$defs/amslerEye" },
+        "left": { "$ref": "#/$defs/amslerEye" }
+      }
+    },
+    "fieldPoint": {
+      "description": "Degrees from the fixation point, x positive right, y positive up",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["xDeg", "yDeg", "sensitivity", "seen"],
+      "properties": {
+        "xDeg": { "type": "number" },
+        "yDeg": { "type": "number" },
+        "sensitivity": { "type": "number" },
+        "sd": { "type": "number", "minimum": 0 },
+        "seen": { "type": "boolean" }
+      }
+    },
+    "visualFieldEye": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fieldRadiusDeg", "pattern"],
+      "properties": {
+        "fieldRadiusDeg": { "type": "number", "exclusiveMinimum": 0 },
+        "pattern": { "enum": ["none", "peripheral", "tunnel", "scattered"] },
+        "points": { "type": "array", "items": { "$ref": "#/$defs/fieldPoint" } },
+        "meanDefect": { "type": "number" },
+        "fixationLossRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "falsePositiveRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "falseNegativeRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reliability": { "$ref": "#/$defs/reliability" }
+      }
+    },
+    "visualField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "right", "left"],
+      "properties": {
+        "source": { "$ref": "#/$defs/source" },
+        "right": { "$ref": "#/$defs/visualFieldEye" },
+        "left": { "$ref": "#/$defs/visualFieldEye" }
+      }
+    },
+    "light": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "photophobia"],
+      "properties": {
+        "source": { "$ref": "#/$defs/source" },
+        "photophobia": { "type": "boolean" },
+        "preferredTheme": { "enum": ["light", "dark"] },
+        "preferredBrightness": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normalVision", "overallReliability"],
+      "properties": {
+        "normalVision": { "type": "boolean" },
+        "overallReliability": {
+          "description": "Worst reliability among measured blocks; null if no block is measured",
+          "oneOf": [{ "$ref": "#/$defs/reliability" }, { "type": "null" }]
+        }
+      }
+    },
+    "userAdjustments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["textSizeOffsetLogMAR"],
+      "properties": {
+        "textSizeOffsetLogMAR": { "type": "number" }
+      }
+    }
+  }
 }

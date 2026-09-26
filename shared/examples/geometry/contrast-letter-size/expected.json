@@ -1,0 +1,12 @@
+{
+  "letterSizeDeg": [
+    3,
+    3.3175597546124775,
+    8
+  ],
+  "contrastLetterSizeCapped": [
+    false,
+    false,
+    true
+  ]
+}

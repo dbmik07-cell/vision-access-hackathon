@@ -2,7 +2,7 @@
 
 ## Stato
 
-Repository predisposta con modifiche strutturali minime prima di `/grill-with-docs`. La precedente cartella `frontend/`, contenente solo `.gitkeep`, e stata rinominata in `ios/`. Il workspace Python preparato come `models` e stato normalizzato in `backend/`, preservandone tutti i contenuti. La cartella `tests/` esistente e stata preservata.
+Contratto MVP approvato e file condivisi pronti in `shared/`. Prossimo passo: implementazione di riferimento Python in `backend/` (Michele) e app Swift in `ios/` (Rocco), in parallelo dagli stessi casi golden. La cartella `tests/` esistente e stata preservata.
 
 ## Decisioni concordate
 
@@ -13,11 +13,15 @@ Repository predisposta con modifiche strutturali minime prima di `/grill-with-do
 - Nessun server runtime, FastAPI, database, API Anthropic, RAG, database vettoriali o dipendenze di rete.
 - Confronti Python/Swift con tolleranze concordate e seed deterministici dove necessari.
 
-- Contratto MVP concordato da Michele con `/grill-with-docs` in `docs/data-contracts.md` (normativo, prevale sulla specifica `docs/spec/ipoview-spec.md`); in attesa di approvazione da Rocco per le parti iOS.
+- Contratto MVP `1.0` in `docs/data-contracts.md`, concordato con `/grill-with-docs` e approvato da Rocco il 2026-09-26; prevale sulla specifica `docs/spec/ipoview-spec.md`.
+- File condivisi creati: schemi rigidi, `shared/parameters.json`, `shared/devices.json`, casi golden tier 1+2 in `shared/examples/`.
 
 ## Da definire
 
-Schemi rigidi, `shared/parameters.json`, `shared/devices.json` e casi golden in `shared/`, dopo l'approvazione del contratto. Protocolli e modelli dei test post-MVP (lettura, campo visivo, Amsler, luce, affidabilita avanzata). Nessuna funzionalita e stata implementata. Non esistono ancora test eseguibili.
+- Output per passo delle tracce QUEST+ `acuity-reaches-sd`, `acuity-max-trials`, `contrast-reaches-sd` (`pending`): si generano con l'implementazione di riferimento dopo `tiny-hand-computed`.
+- Bianco caldo del tema chiaro (Rocco); verifica di `nativeScale` con lo Zoom schermo (Rocco).
+- Protocolli e modelli dei test post-MVP (lettura, campo visivo, Amsler, luce, affidabilita avanzata).
+- Nessuna funzionalita e stata implementata. Non esistono ancora test eseguibili.
 
 ## Linguaggio
 

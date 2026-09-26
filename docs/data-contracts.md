@@ -1,6 +1,6 @@
 # Contratto dati condiviso (MVP)
 
-**Stato:** versione `1.0` in bozza, concordata da Michele durante `/grill-with-docs` (Q1-Q26). **Da approvare da Rocco** per le parti elencate in fondo.
+**Stato:** versione `1.0`, concordata da Michele durante `/grill-with-docs` (Q1-Q26) e **approvata da Rocco il 2026-09-26**, comprese le tre precisazioni di stesura (quantili limitati alla griglia, fascia di contrasto dalla mediana, `unreliable` trattato come `doubtful` in R0). I file condivisi della sezione 2 sono presenti in `shared/`.
 
 Questo documento e **normativo** per l'MVP. In caso di conflitto con la specifica originale (`docs/spec/ipoview-spec.md`, di Rocco), prevale questo contratto. Le differenze sono elencate in "Deviazioni dalla specifica". Le prove a supporto sono in `docs/research/statistical-verification.md`; le decisioni difficili da invertire sono in `docs/adr/`.
 
@@ -12,15 +12,17 @@ Distanza del viso + acuita + contrasto -> `VisualProfile` -> regole R0-R8 -> `Ad
 
 Priorita di Michele: (1) contratto, regole MVP e casi golden tier 1+2 con oracolo manuale; (2) QUEST+ in Python verificato sulle tracce scriptate; (3) simulazioni.
 
-## 2. File condivisi (da creare dopo l'approvazione)
+## 2. File condivisi
 
 | File | Contenuto |
 | --- | --- |
-| `shared/parameters.json` | tutti i parametri numerici di questo documento, ognuno con unita e fonte o "scelta di design"; letto da Python a runtime e incluso come risorsa nell'app Swift. Nessuno ricopia i numeri nel codice. |
-| `shared/devices.json` | `modelIdentifier -> {name, ppi, source}` per gli iPhone con Face ID, valori dalle specifiche tecniche Apple con URL della fonte. |
+| `shared/parameters.json` | tutti i parametri numerici di questo documento, ognuno come `{value, unit, source}`; letto da Python a runtime e incluso come risorsa nell'app Swift. Nessuno ricopia i numeri nel codice. |
+| `shared/devices.json` | `modelIdentifier -> {name, ppi, ppiSource}` per 38 identificativi di iPhone con Face ID (da iPhone X a iPhone 18 Pro Max), verificati il 2026-09-26: ppi dalle pagine Tech Specs di Apple, identificativi da The Apple Wiki con controlli incrociati. Nel simulatore iOS `hw.machine` restituisce `arm64`/`x86_64`: il modello simulato e in `SIMULATOR_MODEL_IDENTIFIER`. |
 | `shared/visual-profile.schema.json` | schema del `VisualProfile` (sezione 8). |
 | `shared/adaptation-plan.schema.json` | schema dell'`AdaptationPlan` (sezione 9). |
-| `shared/examples/` | casi golden (sezione 10). |
+| `shared/examples/` | casi golden (sezione 10); formati descritti in `shared/examples/README.md`. |
+
+Una modifica a questi file e una modifica del contratto: coinvolge entrambi, aggiorna `schemaVersion` se serve e i casi golden interessati.
 
 ## 3. Formato
 
@@ -68,6 +70,8 @@ P(corretta | x, t, beta) = gamma + (1 - gamma - lambda) / (1 + exp(-beta * (x - 
 | griglia di `beta` | {6, 10, 15, 24, 35} per logMAR | {5, 7, 10, 14, 20} per unita log10 |
 | stimoli candidati | stessa griglia di `t`, filtrata dagli stimoli ammissibili | stessa griglia di `t`, filtrata dagli stimoli ammissibili |
 | prior | uniforme su `t` x `beta` | uniforme su `t` x `beta` |
+
+I punti di ogni griglia si generano come `t_i = min + i * step` con `i` intero da 0 (mai per somme cumulative), cosi gli indici coincidono tra i linguaggi.
 
 Fonti di `beta`: acuita 15/24/35 coprono Carkeet 2001 (beta ~ 24 occhi corretti, ~ 14 con defocus); 6 e 10 sono un'ipotesi di design per l'ipovisione. Contrasto: centro ~10-12 da Weibull 3-3,5 (Watson e Pelli 1983; Wallis e altri 2013); estremi 5 e 20 ipotesi a bassa confidenza. `beta` e un parametro di disturbo: si marginalizza e **non si pubblica**.
 
@@ -126,7 +130,7 @@ Blocchi **obbligatori**: `device`, `acuity`, `contrast`, `summary`. Blocchi **op
 | `acuity` | `source`, `logMAR` (mediana), `ci95` `[basso, alto]`, `reliability`, `flags`, `whoCategory`; se misurato anche `trials`, `displayLimitLogMAR`, `censoredAtDisplayLimit` |
 | `contrast` | `source`, `logCS` (mediana), `ci95`, `reliability`, `flags`, `band`; se misurato anche `trials`, `ceilingLogCS`, `censoredAtCeiling` |
 | `amsler` | `source`; `right`, `left`: `distortedAreaDeg2`, `missingAreaDeg2`, `centralInvolved`, opzionale `cells` (10 x 10: 0 normale, 1 distorta, 2 mancante) |
-| `visualField` | `source`; `right`, `left`: `fieldRadiusDeg`, `pattern` (`none` / `peripheral` / `tunnel` / `scattered`), dati grezzi e indici di affidabilita opzionali |
+| `visualField` | `source`; `right`, `left`: `fieldRadiusDeg`, `pattern` (`none` / `peripheral` / `tunnel` / `scattered`), dati grezzi e indici di affidabilita opzionali (`points` con `xDeg`, `yDeg`, `sensitivity`, `sd`, `seen`; `meanDefect`; tassi di perdita di fissazione, falsi positivi e falsi negativi; `reliability`) |
 | `light` | `source`, `photophobia`, opzionali `preferredTheme` (`light` / `dark`) e `preferredBrightness` (0-1) |
 | `reading` | post-MVP; riservato, campi da definire |
 | `summary` | `normalVision`, `overallReliability` |
@@ -143,7 +147,7 @@ Il piano contiene solo numeri pronti. Include `schemaVersion` e l'eco del contes
 
 **Contesto.** `referenceDistanceMm = 400` (costante). A runtime Swift riscala `fontSizeCssPx` per `d / referenceDistanceMm` e chiama `IpoView.setFontSizePx`. Le larghezze di riga sono in `ch` e non dipendono dalla distanza.
 
-**Costanti del font** (Atkinson Hyperlegible, stessa versione nell'app e nelle misure; versione e fonte in `parameters.json`): `r_x` = sxHeight / unitsPerEm; `zeroWidthEm` = avanzamento del glifo "0" / unitsPerEm. Estratte una volta dal file del font con uno script documentato, non da memoria.
+**Costanti del font** (Atkinson Hyperlegible, stessa versione nell'app e nelle misure): `r_x` = sxHeight / unitsPerEm = 496 / 1000 = **0.496**; `zeroWidthEm` = avanzamento del glifo "0" / unitsPerEm = 648 / 1000 = **0.648**. Estratte dal file `AtkinsonHyperlegible-Regular.ttf` "Version 1.006" (Google Fonts, commit `1b22086`, SHA-256 in `parameters.json`) leggendo con fontTools, in un ambiente temporaneo, le tabelle `head`, `OS/2` e `hmtx`. L'app deve includere lo stesso file: un altro file o un'altra versione richiede di aggiornare le costanti e i golden.
 
 ### R0. Limite prudente
 
@@ -219,21 +223,25 @@ maxLineWidthCh = clamp(L_max_mm / (fontSize_mm * zeroWidthEm), 15, 60)
 ```
 shared/examples/
 ├── rules/<caso>/      profile.json, context.json, expected-plan.json, README.md
-├── quest/<caso>/      trace.json (prove scriptate e output attesi per passo), README.md
+├── summary/<caso>/    input.json, expected.json, README.md
+├── quest/<caso>/      trace.json (configurazione, osservatore scriptato, output attesi per passo), README.md
 └── geometry/<caso>/   input.json, expected.json, README.md
 ```
 
-Ogni `README.md` contiene l'**oracolo manuale**: i valori chiave derivati a mano, con formula e numeri. Python deve riprodurli prima che il suo output diventi golden.
+`summary/` verifica le derivazioni del profilo (`summary`, categoria OMS, fascia di contrasto), che non passano dal piano. Ogni `README.md` contiene l'**oracolo manuale**: i valori chiave derivati a mano, con formula e numeri. Python deve riprodurli prima che il suo output diventi golden. I formati dei file sono descritti in `shared/examples/README.md`. Contesto dei casi `rules/`: 400 mm, 460 ppi, `nativeScale` 3.
+
+Le tracce QUEST+ usano un osservatore senza casualita: `scripted` (risposte fissate) oppure `deterministicThreshold` (corretta se e solo se `x >= thresholdX`, con soglia fuori griglia e inversioni in prove elencate).
 
 **Tier 1:**
 
-- `rules/`: `mild-acuity`, `doubtful-acuity` (esattamente +0.1 logMAR rispetto al precedente), `low-contrast` (fascia 1.0-1.5), `tunnel-vision` (preset con raggio 5°), `central-loss` (preset Amsler con `centralInvolved`), `low-contrast-photophobia` (preset luce, tema scuro e R3).
-- `quest/`: `acuity-reaches-sd`, `acuity-max-trials`, `contrast-reaches-sd` (risposte corrette ad alto contrasto e sbagliate a basso: deve convergere a un logCS plausibile, non allo speculare, per intercettare un segno invertito).
+- `rules/`: `mild-acuity`, `doubtful-acuity` (esattamente +0.1 logMAR rispetto al precedente), `low-contrast` (fascia 1.0-1.5), `tunnel-vision` (preset con raggio 5°, `maxLineWidthCh` limitato a 15), `central-loss` (preset Amsler con `centralInvolved`), `low-contrast-photophobia` (preset luce, tema scuro e R3).
+- `quest/`: `tiny-hand-computed` (un passo del motore su una griglia minima, interamente calcolato a mano: stato `final`); `acuity-reaches-sd`, `acuity-max-trials`, `contrast-reaches-sd` (quest'ultimo deve convergere a un logCS plausibile, non allo speculare, per intercettare un segno invertito). Le tre tracce complete hanno output **`pending`**: li genera l'implementazione di riferimento dopo aver superato `tiny-hand-computed` e i controlli di plausibilita del README, poi si congelano con `status: final` in una PR condivisa.
 
 **Tier 2 (parte dell'MVP):**
 
-- soglie esatte: `logCS` = 1.0, 1.5, 1.65; raggio del campo 10°; `acuity.ci95[1]` = 0.3 (limite di `normalVision`);
-- geometria: distanza/ppi/`nativeScale` -> stimoli ammissibili; angolo -> CSS px, incluso un caso con `nativeScale` 2.88.
+- `rules/`: `contrast-edge-1-65`, `contrast-edge-1-5`, `contrast-edge-1-0`, `doubtful-contrast` (lo spostamento di R0 porta esattamente a 1.0), `tunnel-vision-10deg` (formula di `maxLineWidthCh` senza limitazione), `near-normal` (vista nella norma, stima censurata, `minTargetPt` sotto il tetto), `user-offset`, `photophobia-no-preference`.
+- `summary/`: `label-edges` (bordi delle categorie OMS e delle fasce), `normal-vision-edge` (`ci95[1]` = 0.3), `normal-vision-true` (contrasto esattamente 1.5), `normal-vision-field-defect`, `reliability-ignores-presets`, `all-preset` (`overallReliability = null`).
+- `geometry/`: `angle-to-css-px` (incluso `nativeScale` 2.88), `admissible-acuity-stimuli` (400 mm / 460 ppi e 350 mm / 326 ppi), `contrast-letter-size` (incluso il limite di 8°).
 
 ## 11. Workspace Python (`backend/`)
 
@@ -284,12 +292,18 @@ Ogni `README.md` contiene l'**oracolo manuale**: i valori chiave derivati a mano
 | 9 | Occhiali +3/+4 per il giudice -> a 25-40 cm possono non ridurre l'acuita; servono +4/+5 a 40 cm o un filtro sfocante, mirando a una mediana di 0,3-0,4 | ottica della lente positiva | - |
 | 10 | Riferimento MRF -> citare Vingrys 2016 per la tecnica | verifica delle fonti | - |
 
-## 14. Da approvare con Rocco
+## 14. Approvazione di Rocco e azioni aperte
 
-- Fascia 35-45 cm; E disegnata in modo nativo ai pixel del dispositivo; dithering e livelli di contrasto ammissibili.
-- `nativeScale` letto a runtime (verificare con un `print` il valore con lo Zoom schermo attivo); viewport forzato da `adapter.js`; `fontSizeCssPx` come minimo; parole lunghe spezzate.
-- Bianco caldo del tema chiaro; versione del font inclusa nell'app; `parameters.json` incluso come risorsa; `Codable` rigoroso; modello sconosciuto = test bloccato.
-- Sfocatura del giudice per la demo; preset tunnel a 5°; lettera del contrasto a 8° dentro lo schermo alla fascia di test; nuova frase della sezione 6; proposta di CI.
+Approvati da Rocco il 2026-09-26: fascia 35-45 cm; E disegnata in modo nativo ai pixel del dispositivo; dithering e livelli di contrasto ammissibili come scelta di rendering iOS; `nativeScale` letto a runtime; viewport forzato da `adapter.js`; `fontSizeCssPx` come minimo; parole lunghe spezzate; font e `parameters.json` inclusi nell'app; `Codable` rigoroso; modello sconosciuto = test bloccato; preset tunnel a 5°.
+
+Azioni aperte (Rocco, lato iOS):
+
+- scegliere il bianco caldo del tema chiaro (`parameters.json` `rules.lightTheme`, oggi `null`);
+- verificare con un `print` il valore di `nativeScale` con lo Zoom schermo attivo;
+- verificare che la lettera del contrasto a 8° stia nello schermo nella fascia di test;
+- tarare la sfocatura del giudice per la demo (mediana 0.3-0.4);
+- riscrivere la frase della sezione 6 della specifica;
+- valutare la proposta di CI con GitHub Actions.
 
 ## 15. Post-MVP
 

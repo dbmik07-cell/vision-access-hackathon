@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "device": {
+    "modelIdentifier": "iPhone15,4",
+    "ppi": 460,
+    "nativeScale": 3
+  },
+  "acuity": {
+    "source": "measured",
+    "logMAR": 0.4,
+    "ci95": [
+      0.3,
+      0.5
+    ],
+    "reliability": "reliable",
+    "flags": [],
+    "whoCategory": "mild",
+    "trials": 24,
+    "displayLimitLogMAR": -0.02,
+    "censoredAtDisplayLimit": false
+  },
+  "contrast": {
+    "source": "measured",
+    "logCS": 1.35,
+    "ci95": [
+      1.2,
+      1.45
+    ],
+    "reliability": "reliable",
+    "flags": [],
+    "band": "reduced",
+    "trials": 20,
+    "ceilingLogCS": 2.04,
+    "censoredAtCeiling": false
+  },
+  "summary": {
+    "normalVision": false,
+    "overallReliability": "reliable"
+  },
+  "light": {
+    "source": "preset",
+    "photophobia": true,
+    "preferredTheme": "dark",
+    "preferredBrightness": 0.4
+  }
+}
