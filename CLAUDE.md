@@ -46,3 +46,17 @@ Applicazione nativa iOS che deve funzionare localmente sull'iPhone. Il contratto
 - Michele lavora solo in `backend/`; Rocco lavora solo in `ios/`. Nessuno modifica l'area dell'altro salvo richiesta esplicita.
 - `shared/` e il contratto comune: le modifiche agli schemi JSON e ai casi golden coinvolgono entrambi e devono preservare la compatibilita.
 - Non aggiungere FastAPI, database, API Anthropic, RAG, database vettoriali o dipendenze di rete. L'app finale funziona localmente sull'iPhone.
+
+## Agent skills
+
+### Issue tracker
+
+Le issue sono tracciate nelle GitHub Issues di `dbmik07-cell/vision-access-hackathon`, tramite CLI `gh`. Vedi `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Si usano le cinque etichette canoniche di default (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). Vedi `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Layout single-context: `CONTEXT.md` e `docs/adr/` nella root. Vedi `docs/agents/domain.md`.
