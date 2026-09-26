@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Il Quotidiano (copia offline) - Servizi pubblici e accessibilità per anziani e ipovedenti</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 13px;
+    color: #999999;
+    background: #ffffff;
+  }
+  a { color: #9a9a9a; }
+
+  header.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: #ffffff;
+    border-bottom: 2px solid #d8b4b4;
+    padding: 8px 12px;
+  }
+  header.site-header .top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  header.site-header .masthead {
+    font-family: 'Times New Roman', serif;
+    font-size: 22px;
+    font-weight: bold;
+    color: #b3b3b3;
+    letter-spacing: 1px;
+  }
+  header.site-header .date-line {
+    font-size: 10px;
+    color: #c2c2c2;
+  }
+  nav.topnav ul {
+    list-style: none;
+    display: flex;
+    gap: 12px;
+    margin: 6px 0 0 0;
+    padding: 0;
+    font-size: 11px;
+    border-top: 1px solid #eee;
+    padding-top: 6px;
+  }
+  nav.topnav a { color: #b0b0b0; text-decoration: none; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 18px;
+    max-width: 1024px;
+    margin: 0 auto;
+    padding: 14px 12px 70px 12px;
+  }
+
+  article.main-article header h1 {
+    font-size: 21px;
+    color: #a3a3a3;
+    line-height: 1.25;
+    margin: 4px 0;
+  }
+  article.main-article header .subtitle {
+    font-size: 14px;
+    color: #b8b8b8;
+    font-style: italic;
+    margin-bottom: 8px;
+  }
+  article.main-article header .byline {
+    font-size: 11px;
+    color: #c2c2c2;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+  }
+  article.main-article p {
+    line-height: 1.5;
+    margin: 0 0 12px 0;
+    color: #9c9c9c;
+  }
+  article.main-article p:first-of-type::first-letter {
+    font-size: 28px;
+    color: #b0b0b0;
+    font-weight: bold;
+  }
+
+  .newsletter-box {
+    background: #fafafa;
+    border: 1px solid #eee;
+    padding: 10px;
+    margin: 14px 0;
+    font-size: 11px;
+    color: #b5b5b5;
+    text-align: center;
+  }
+  .newsletter-box input {
+    font-size: 11px;
+    padding: 4px;
+    width: 160px;
+    color: #aaa;
+    border: 1px solid #ddd;
+  }
+  .newsletter-box button {
+    font-size: 11px;
+    padding: 4px 10px;
+    background: #e6e6e6;
+    color: #999;
+    border: 1px solid #ccc;
+  }
+
+  aside.sidebar {
+    font-size: 11px;
+    color: #b8b8b8;
+  }
+  aside.sidebar h2 {
+    font-size: 12px;
+    color: #b0b0b0;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+  }
+  aside.sidebar ol {
+    padding-left: 16px;
+    margin: 0 0 16px 0;
+  }
+  aside.sidebar li {
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+
+  .ad, .banner-pubblicitario, .adsbox {
+    background: repeating-linear-gradient(45deg, #e0e0e0, #e0e0e0 10px, #d8d8d8 10px, #d8d8d8 20px);
+    border: 1px dashed #c9c9c9;
+    color: #b3b3b3;
+    text-align: center;
+    padding: 20px 4px;
+    margin-bottom: 14px;
+    font-size: 10px;
+  }
+
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 20px;
+    border-top: 1px solid #eee;
+    padding-top: 14px;
+  }
+  .related-grid .related-item {
+    font-size: 11px;
+    color: #b0b0b0;
+  }
+  .related-grid .related-item .thumb {
+    width: 100%;
+    height: 70px;
+    background: #eee;
+    margin-bottom: 4px;
+  }
+
+  footer.site-footer {
+    max-width: 1024px;
+    margin: 0 auto;
+    padding: 14px 12px 60px 12px;
+    font-size: 10px;
+    color: #c0c0c0;
+    border-top: 1px solid #eee;
+  }
+  footer.site-footer ul {
+    list-style: none;
+    display: flex;
+    gap: 12px;
+    padding: 0;
+    flex-wrap: wrap;
+  }
+
+  #cookie-consent.cookie-banner {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #ffffff;
+    border-top: 1px solid #ddd;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #b0b0b0;
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.15);
+    z-index: 100;
+  }
+  #cookie-consent .cookie-buttons button {
+    margin-left: 6px;
+    font-size: 11px;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    background: #eee;
+    color: #999;
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="top-row">
+    <div class="masthead">Il Quotidiano <span style="font-size:11px; font-style:italic;">(copia offline)</span></div>
+    <div class="date-line">Sabato 26 settembre 2026 &mdash; Edizione online</div>
+  </div>
+  <nav class="topnav">
+    <ul>
+      <li><a href="#">Home</a></li>
+      <li><a href="#">Politica</a></li>
+      <li><a href="#">Cronaca</a></li>
+      <li><a href="#">Economia</a></li>
+      <li><a href="#">Salute</a></li>
+      <li><a href="#">Tecnologia</a></li>
+      <li><a href="#">Sport</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="layout">
+
+  <article class="main-article">
+    <header>
+      <h1>Servizi pubblici sempre più digitali: la sfida dell'accessibilità per anziani e persone ipovedenti</h1>
+      <p class="subtitle">Sportelli online, app e siti istituzionali spesso non tengono conto di chi ha difficoltà visive o poca familiarità con la tecnologia. Un problema che riguarda milioni di cittadini.</p>
+      <p class="byline">di Maria Antonelli &mdash; 26 settembre 2026 &mdash; 6 min di lettura</p>
+    </header>
+
+    <p>Negli ultimi dieci anni la pubblica amministrazione italiana ha compiuto un percorso di digitalizzazione senza precedenti: prenotazioni sanitarie, pagamenti, richieste di certificati e persino il rinnovo della patente sono passati, quasi interamente, dagli sportelli fisici alle piattaforme online. Se da un lato questo cambiamento ha semplificato la vita a milioni di persone, dall'altro ha lasciato indietro una fetta consistente della popolazione, in particolare gli anziani e le persone con disabilità visiva, per le quali molti siti istituzionali restano di fatto inaccessibili.</p>
+
+    <p>Secondo i dati raccolti da alcune associazioni di categoria, in Italia vivono oltre un milione di persone con gravi difficoltà visive, e la quota sale considerevolmente se si considerano gli ipovedenti con problemi meno severi ma comunque limitanti nella vita quotidiana. A questi si aggiunge una popolazione anziana in costante crescita, spesso alle prese con una progressiva riduzione della vista legata all'età, come la maculopatia o la cataratta. Per loro, un modulo online con caratteri minuscoli, un contrasto insufficiente tra testo e sfondo, o un layout disordinato con troppe colonne, non è semplicemente scomodo: può diventare un ostacolo insormontabile.</p>
+
+    <p>"Molti enti pubblici hanno adottato le linee guida sull'accessibilità digitale solo sulla carta," spiega Giovanni Ricci, consulente informatico che da anni si occupa di siti per la pubblica amministrazione. "Basta aprire la home page di certi portali per rendersi conto che il testo è grigio chiaro su sfondo bianco, i pulsanti sono piccolissimi e non c'è alcun modo di ingrandire i contenuti senza rompere l'impaginazione. Chi ha una vista ridotta finisce per rinunciare e chiedere aiuto a un parente o a un operatore, vanificando in parte i benefici della digitalizzazione."</p>
+
+    <p>Il problema non riguarda solo la dimensione del testo. Anche il contrasto cromatico gioca un ruolo cruciale: le linee guida internazionali per l'accessibilità dei contenuti web (le cosiddette WCAG) raccomandano un rapporto di contrasto minimo di 4.5 a 1 tra testo e sfondo per la lettura ordinaria, ma numerosi siti italiani, specialmente quelli con un design "moderno" fatto di grigi tenui e sfondi chiari, restano ben al di sotto di questa soglia. Il risultato è un testo che, per chi ha una vista perfetta, può sembrare elegante, ma che per una persona ipovedente è semplicemente illeggibile.</p>
+
+    <div class="newsletter-box">
+      Iscriviti alla newsletter de Il Quotidiano<br>
+      <input type="text" placeholder="La tua email" disabled>
+      <button type="button">Iscriviti</button>
+    </div>
+
+    <p>A complicare ulteriormente la fruizione ci sono elementi ormai comuni a quasi tutti i siti: banner dei cookie che occupano una porzione importante dello schermo, barre di navigazione fisse che riducono lo spazio utile per il contenuto, pubblicità intrusive e caroselli di immagini in automatico che possono generare disorientamento in chi ha problemi di messa a fuoco. Per un utente vedente questi elementi sono al più fastidiosi; per una persona ipovedente possono nascondere completamente il contenuto principale della pagina o rendere impossibile trovare il pulsante per procedere.</p>
+
+    <p>Le soluzioni tecniche, in realtà, esisterebbero già. La modalità "lettura" integrata in molti browser, ad esempio, è in grado di isolare il testo principale di un articolo o di un modulo, eliminando pubblicità, menu e banner superflui, e presentando i contenuti con un carattere più grande e un contrasto elevato. Alcune applicazioni specializzate per persone con disabilità visiva vanno oltre, applicando automaticamente temi ad alto contrasto, ingrandendo i pulsanti interattivi e semplificando il layout in un'unica colonna verticale, più semplice da scorrere anche con l'uso di uno screen reader o di un ingranditore.</p>
+
+    <p>Restano tuttavia delle sfide. Alcuni portali della pubblica amministrazione utilizzano moduli complessi, con campi obbligatori nascosti in sezioni collassabili o didascalie che scompaiono al passaggio del mouse, elementi che nessuna modalità di lettura automatica riesce a semplificare del tutto. In questi casi, spiegano gli esperti, l'unica vera soluzione è ripensare la progettazione dei servizi digitali fin dall'inizio, tenendo conto delle linee guida di accessibilità e testando i siti con utenti reali che hanno disabilità visive, anziché limitarsi a un adeguamento successivo e spesso superficiale.</p>
+
+    <p>Nel frattempo, associazioni di consumatori e comitati per i diritti delle persone con disabilità continuano a chiedere interventi normativi più stringenti e controlli periodici sui siti della pubblica amministrazione. "Non si tratta di un lusso per pochi," conclude Ricci, "ma di un diritto che riguarda una parte crescente della popolazione, destinata ad aumentare ulteriormente con l'invecchiamento demografico del Paese. Un sito accessibile oggi è semplicemente un sito ben progettato, utile a tutti, non solo a chi ha una disabilità visiva."</p>
+
+    <div class="related-grid">
+      <div class="related-item">
+        <div class="thumb"></div>
+        Sanità digitale: come prenotare una visita online passo dopo passo
+      </div>
+      <div class="related-item">
+        <div class="thumb"></div>
+        Pensioni, al via le nuove domande online: la guida completa
+      </div>
+      <div class="related-item">
+        <div class="thumb"></div>
+        Smartphone e anziani: le app pensate per semplificare la vita quotidiana
+      </div>
+    </div>
+  </article>
+
+  <aside class="sidebar">
+    <div class="adsbox ad">
+      Pubblicità<br>Occhiali da vista<br>2x1 questo mese
+    </div>
+
+    <h2>Più letti</h2>
+    <ol>
+      <li>Manovra 2027, le prime anticipazioni sulle pensioni</li>
+      <li>Bonus trasporti, come funziona e chi può richiederlo</li>
+      <li>Truffe telefoniche agli anziani: aumentano le segnalazioni</li>
+      <li>Sanità, liste d'attesa: la situazione regione per regione</li>
+      <li>Caro bollette, le nuove tariffe in vigore da ottobre</li>
+    </ol>
+
+    <div class="banner-pubblicitario ad">
+      Pubblicità<br>Assicurazione<br>casa e famiglia
+    </div>
+
+    <h2>Dai nostri partner</h2>
+    <ol>
+      <li>Come scegliere l'apparecchio acustico giusto</li>
+      <li>Guida ai contributi per l'abbattimento delle barriere architettoniche</li>
+    </ol>
+  </aside>
+
+</div>
+
+<footer class="site-footer">
+  <ul>
+    <li><a href="#">Chi siamo</a></li>
+    <li><a href="#">Redazione</a></li>
+    <li><a href="#">Pubblicità</a></li>
+    <li><a href="#">Privacy</a></li>
+    <li><a href="#">Cookie policy</a></li>
+  </ul>
+  <p>&copy; 2026 Il Quotidiano (copia offline) - Pagina dimostrativa generata per uso offline in IpoView. Articolo di fantasia.</p>
+</footer>
+
+<div id="cookie-consent" class="cookie-banner">
+  <span>Utilizziamo cookie di profilazione, anche di terze parti, per inviarti pubblicità in linea con le tue preferenze. Se vuoi saperne di più leggi la nostra cookie policy.</span>
+  <span class="cookie-buttons">
+    <button type="button">Rifiuta</button>
+    <button type="button">Accetta tutti</button>
+  </span>
+</div>
+
+</body>
+</html>
