@@ -16,11 +16,19 @@ def raw_parameters():
     return json.loads((SHARED_DIR / "parameters.json").read_text(encoding="utf-8"))
 
 
-def write_shared_copy(tmp_path, parameters):
-    """A shared/ copy with the given parameters and the real devices and schemas."""
-    for name in ("devices.json", "visual-profile.schema.json", "adaptation-plan.schema.json"):
+@pytest.fixture(scope="module")
+def raw_devices():
+    return json.loads((SHARED_DIR / "devices.json").read_text(encoding="utf-8"))
+
+
+def write_shared_copy(tmp_path, parameters=None, devices=None):
+    """A shared/ copy with the given parameters and devices, real files for the rest."""
+    for name in ("parameters.json", "devices.json", "visual-profile.schema.json", "adaptation-plan.schema.json"):
         (tmp_path / name).write_bytes((SHARED_DIR / name).read_bytes())
-    (tmp_path / "parameters.json").write_text(json.dumps(parameters), encoding="utf-8")
+    if parameters is not None:
+        (tmp_path / "parameters.json").write_text(json.dumps(parameters), encoding="utf-8")
+    if devices is not None:
+        (tmp_path / "devices.json").write_text(json.dumps(devices), encoding="utf-8")
     return tmp_path
 
 
@@ -74,6 +82,22 @@ def test_device_lookup_by_model_identifier(contract):
             entry["ppi"],
             entry["ppiSource"],
         )
+
+
+@pytest.mark.parametrize("field", ["ppi", "ppiSource", "name"])
+def test_device_entry_missing_field_is_an_error(tmp_path, raw_devices, field):
+    devices = copy.deepcopy(raw_devices)
+    del devices["devices"]["iPhone13,2"][field]
+    with pytest.raises(ContractError, match=r"iPhone13,2"):
+        load_contract(write_shared_copy(tmp_path, devices=devices))
+
+
+@pytest.mark.parametrize("ppi", [None, "460", 0, True])
+def test_device_entry_invalid_ppi_is_an_error(tmp_path, raw_devices, ppi):
+    devices = copy.deepcopy(raw_devices)
+    devices["devices"]["iPhone13,2"]["ppi"] = ppi
+    with pytest.raises(ContractError, match=r"iPhone13,2"):
+        load_contract(write_shared_copy(tmp_path, devices=devices))
 
 
 @pytest.mark.parametrize("identifier", ["iPhone99,9", "arm64", "iPhone8,4", ""])

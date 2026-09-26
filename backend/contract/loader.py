@@ -42,6 +42,7 @@ EXPECTED_PARAMETERS = {
     "tolerances": {"intermediateRelative", "intermediateAbsolute", "publishedAbsolute"},
 }
 PARAMETER_FIELDS = {"value", "unit", "source"}
+DEVICE_FIELDS = {"name", "ppi", "ppiSource"}
 ENGINE_TESTS = ("acuity", "contrast")
 
 
@@ -135,11 +136,31 @@ def _check_parameters(raw: dict) -> dict[str, dict[str, Parameter]]:
     return parameters
 
 
+def _check_devices(raw: dict) -> dict[str, Device]:
+    entries = raw.get("devices")
+    if not isinstance(entries, dict):
+        raise ContractError("shared/devices.json: missing 'devices' table")
+    problems = []
+    devices = {}
+    for identifier, entry in entries.items():
+        if not isinstance(entry, dict) or entry.keys() != DEVICE_FIELDS:
+            problems.append(f"device '{identifier}' must have exactly {sorted(DEVICE_FIELDS)}")
+            continue
+        ppi = entry["ppi"]
+        if isinstance(ppi, bool) or not isinstance(ppi, (int, float)) or ppi <= 0:
+            problems.append(f"device '{identifier}' has invalid ppi {ppi!r}")
+            continue
+        devices[identifier] = Device(identifier, entry["name"], ppi, entry["ppiSource"])
+    if problems:
+        raise ContractError("shared/devices.json: " + "; ".join(problems))
+    return devices
+
+
 class Contract:
     def __init__(self, shared_dir: Path):
         self.shared_dir = shared_dir
         self._parameters = _check_parameters(_read_json(shared_dir / "parameters.json"))
-        self._devices = _read_json(shared_dir / "devices.json")["devices"]
+        self._devices = _check_devices(_read_json(shared_dir / "devices.json"))
         self.profile_schema = _read_json(shared_dir / "visual-profile.schema.json")
         self.plan_schema = _read_json(shared_dir / "adaptation-plan.schema.json")
         self._profile_validator = Draft202012Validator(self.profile_schema)
@@ -163,13 +184,13 @@ class Contract:
         )
 
     def device(self, model_identifier: str) -> Device:
-        entry = self._devices.get(model_identifier)
-        if entry is None:
+        device = self._devices.get(model_identifier)
+        if device is None:
             raise UnknownDeviceError(
                 f"model identifier '{model_identifier}' is not in shared/devices.json; "
                 "the test cannot start and ppi is never estimated"
             )
-        return Device(model_identifier, entry["name"], entry["ppi"], entry["ppiSource"])
+        return device
 
     def validate_profile(self, profile: dict) -> None:
         self._profile_validator.validate(profile)

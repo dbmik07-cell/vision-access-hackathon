@@ -8,6 +8,8 @@ import numpy as np
 from contract.loader import Tolerances
 
 # Published outputs: |a - b| <= publishedAbsolute. Matched by field name, also inside lists.
+# Pending #14: whether displayLimitLogMAR, ceilingLogCS and the trace final.estimate are
+# published outputs is not settled; until then they use the intermediate tolerance.
 PUBLISHED_FIELDS = frozenset(
     {"ci95", "logMAR", "logCS", "fontSizeCssPx", "minTextContrast", "minUIContrast"}
 )
