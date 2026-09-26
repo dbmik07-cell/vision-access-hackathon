@@ -57,8 +57,62 @@ def run_rules(case_dir, build_plan, contract):
     assert compare(plan, read_json(case_dir / "expected-plan.json"), contract.tolerances) == []
 
 
+GEOMETRY_CASE_KEYS = {
+    "angle": {"distanceMm", "angleArcmin", "ppi", "nativeScale"},
+    "admissible": {"distanceMm", "ppi", "screenShortSideDevicePx"},
+}
+
+
+def geometry_input_shape(given):
+    """geometry/ inputs come in three shapes, told apart by their exact keys."""
+    if given.keys() == {"acuityCi95UpperLogMAR"}:
+        return "letter"
+    if given.keys() == {"cases"}:
+        for shape, keys in GEOMETRY_CASE_KEYS.items():
+            if all(case.keys() == keys for case in given["cases"]):
+                return shape
+    return None
+
+
+def run_geometry(case_dir, geometry, contract):
+    given = read_json(case_dir / "input.json")
+    shape = geometry_input_shape(given)
+    if shape == "letter":
+        sizes = [geometry.contrast_letter_size(contract, upper) for upper in given["acuityCi95UpperLogMAR"]]
+        actual = {
+            "letterSizeDeg": [s.letter_size_deg for s in sizes],
+            "contrastLetterSizeCapped": [s.capped for s in sizes],
+        }
+    elif shape == "angle":
+        actual = {"cases": []}
+        for case in given["cases"]:
+            mm = geometry.angle_to_mm(case["distanceMm"], case["angleArcmin"])
+            actual["cases"].append(
+                {
+                    "mm": mm,
+                    "devicePx": geometry.mm_to_device_px(contract, mm, case["ppi"]),
+                    "cssPx": geometry.mm_to_css_px(contract, mm, case["ppi"], case["nativeScale"]),
+                }
+            )
+    elif shape == "admissible":
+        actual = {"cases": []}
+        for case in given["cases"]:
+            stimuli = geometry.admissible_acuity_stimuli(
+                contract, case["distanceMm"], case["ppi"], case["screenShortSideDevicePx"]
+            )
+            actual["cases"].append(
+                {
+                    "admissibleIndices": list(stimuli.indices),
+                    "displayLimitLogMAR": stimuli.display_limit_logmar,
+                }
+            )
+    else:
+        pytest.fail(f"unrecognised geometry input structure in {case_dir.name}")
+    assert compare(actual, read_json(case_dir / "expected.json"), contract.tolerances) == []
+
+
 # Categories whose golden runner is written together with their entry point.
-RUNNERS = {"rules": run_rules}
+RUNNERS = {"rules": run_rules, "geometry": run_geometry}
 
 
 def case_params():
