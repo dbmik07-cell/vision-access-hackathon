@@ -35,3 +35,12 @@ def test_amsler_problem_blocks_normal_vision(contract, normal_profile, problem):
     summary = derive_summary(contract, profile)
     contract.validate_profile({**profile, "summary": summary})
     assert summary["normalVision"] is False
+
+
+@pytest.mark.parametrize("case", ["central-loss", "tunnel-vision", "low-contrast-photophobia"])
+def test_preset_blocks_do_not_affect_overall_reliability(contract, case):
+    profile = read_json(EXAMPLES_DIR / "rules" / case / "profile.json")
+    without_presets = {k: v for k, v in profile.items() if k not in ("amsler", "visualField", "light")}
+    assert derive_summary(contract, profile)["overallReliability"] == (
+        derive_summary(contract, without_presets)["overallReliability"]
+    )

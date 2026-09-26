@@ -5,7 +5,7 @@ No rounding anywhere: rounding happens only in adapter.js. Every number comes fr
 
 import math
 
-from adaptation.summary import contrast_band
+from adaptation.summary import EYES, contrast_band
 from contract import Contract, load_contract
 from geometry import angle_to_mm, mm_to_css_px
 
@@ -44,7 +44,7 @@ def _font_size_mm(contract: Contract, profile: dict, context: dict) -> float:
 
 def _has_field_loss(profile: dict) -> bool:
     field = profile.get("visualField")
-    return field is not None and any(field[eye]["pattern"] != "none" for eye in ("right", "left"))
+    return field is not None and any(field[eye]["pattern"] != "none" for eye in EYES)
 
 
 def _max_line_width_ch(contract: Contract, profile: dict, context: dict, font_size_mm: float) -> float:
@@ -64,7 +64,7 @@ def _max_line_width_ch(contract: Contract, profile: dict, context: dict, font_si
 def _spacing(contract: Contract, profile: dict) -> dict:
     """R2: wider spacing when either eye has central involvement on the Amsler grid."""
     amsler = profile.get("amsler")
-    central = amsler is not None and any(amsler[eye]["centralInvolved"] for eye in ("right", "left"))
+    central = amsler is not None and any(amsler[eye]["centralInvolved"] for eye in EYES)
     return contract.param("rules", "spacingCentralLoss" if central else "spacingBase")
 
 
@@ -81,7 +81,7 @@ def _min_text_contrast(contract: Contract, profile: dict) -> float:
     return by_band["reducedAtLowerEdge"] + slope * (x - bounds["reduced"])
 
 
-def _theme(contract: Contract, profile: dict) -> dict:
+def _light(contract: Contract, profile: dict) -> dict:
     """R4: theme, its colours, image dimming and screen brightness."""
     light = profile.get("light", {})
     photophobia = light.get("photophobia", False)
@@ -117,7 +117,7 @@ def build_plan(profile: dict, context: dict, contract: Contract | None = None) -
     ui = contract.param("rules", "minUIContrast")
     target = contract.param("rules", "minTargetPt")
     spacing = _spacing(contract, profile)
-    theme = _theme(contract, profile)
+    light = _light(contract, profile)
 
     return {
         "schemaVersion": contract.plan_schema["properties"]["schemaVersion"]["const"],
@@ -142,13 +142,13 @@ def build_plan(profile: dict, context: dict, contract: Contract | None = None) -
             "moveEdgeElements": _has_field_loss(profile),
         },
         "color": {
-            "theme": theme["theme"],
-            "background": theme["background"],
-            "text": theme["text"],
+            "theme": light["theme"],
+            "background": light["background"],
+            "text": light["text"],
             "minTextContrast": min_text_contrast,
             "minUIContrast": max(ui["floor"], min_text_contrast * ui["scaleFromText"]),
             "preserveHue": True,
-            "imageBrightness": theme["imageBrightness"],
+            "imageBrightness": light["imageBrightness"],
         },
         "controls": {
             "underlineLinks": True,
@@ -157,5 +157,5 @@ def build_plan(profile: dict, context: dict, contract: Contract | None = None) -
         },
         "cleanup": {"removeCookieBanners": True, "stopAnimations": True, "useReadability": True},
         "speech": {"tapToSpeak": False, "rateWpm": None},
-        "screen": {"brightness": theme["brightness"]},
+        "screen": {"brightness": light["brightness"]},
     }

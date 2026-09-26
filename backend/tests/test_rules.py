@@ -4,7 +4,7 @@ import copy
 
 import pytest
 
-from adaptation import UnsupportedProfileError, build_plan, derive_summary
+from adaptation import UnsupportedProfileError, build_plan
 from contract import compare
 from tests.golden_cases import EXAMPLES_DIR, read_json
 
@@ -26,7 +26,8 @@ def test_visual_field_with_no_loss_in_either_eye_keeps_the_defaults(contract):
     for eye in ("right", "left"):
         profile["visualField"][eye]["pattern"] = "none"
     plan = build_plan(profile, golden("tunnel-vision", "context.json"), contract=contract)
-    assert plan["layout"]["maxLineWidthCh"] == contract.param("rules", "maxLineWidthCh")["max"]
+    default_width = contract.param("rules", "maxLineWidthCh")["max"]
+    assert compare(plan["layout"]["maxLineWidthCh"], default_width, contract.tolerances) == []
     assert plan["layout"]["moveEdgeElements"] is False
 
 
@@ -43,7 +44,7 @@ def test_amsler_without_central_involvement_keeps_base_spacing(contract):
     profile["amsler"]["right"]["centralInvolved"] = False
     plan = build_plan(profile, golden("central-loss", "context.json"), contract=contract)
     spacing = contract.param("rules", "spacingBase")
-    assert {key: plan["text"][key] for key in spacing} == spacing
+    assert compare({key: plan["text"][key] for key in spacing}, spacing, contract.tolerances) == []
 
 
 def test_light_block_without_photophobia_or_preference_keeps_the_original_theme(contract):
@@ -52,7 +53,7 @@ def test_light_block_without_photophobia_or_preference_keeps_the_original_theme(
     plan = build_plan(profile, golden("photophobia-no-preference", "context.json"), contract=contract)
     assert plan["color"]["theme"] == "original"
     assert (plan["color"]["background"], plan["color"]["text"]) == (None, None)
-    assert plan["color"]["imageBrightness"] == 1
+    assert compare(plan["color"]["imageBrightness"], 1, contract.tolerances) == []
     assert plan["screen"]["brightness"] is None
 
 
@@ -62,15 +63,6 @@ def test_light_theme_is_not_yet_defined_in_the_contract(contract):
     contract.validate_profile(profile)
     with pytest.raises(NotImplementedError, match="light theme not yet defined in the contract"):
         build_plan(profile, golden("low-contrast-photophobia", "context.json"), contract=contract)
-
-
-@pytest.mark.parametrize("case", ["central-loss", "tunnel-vision", "low-contrast-photophobia"])
-def test_preset_blocks_do_not_affect_overall_reliability(contract, case):
-    profile = golden(case, "profile.json")
-    without_presets = {k: v for k, v in profile.items() if k not in ("amsler", "visualField", "light")}
-    assert derive_summary(contract, profile)["overallReliability"] == (
-        derive_summary(contract, without_presets)["overallReliability"]
-    )
 
 
 def test_reading_block_is_not_yet_supported(contract):
