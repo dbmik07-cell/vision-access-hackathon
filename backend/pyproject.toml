@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ipoview-reference"
+version = "0.1.0"
+description = "Python reference implementation of the IpoView MVP contract (docs/data-contracts.md). Local workspace, not a server."
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "jsonschema",
+    "pytest",
+]
+
+[project.optional-dependencies]
+sim = ["matplotlib"]
+
+[tool.setuptools]
+# backend/ is the import root through pytest's pythonpath; nothing is packaged.
+packages = []
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-ra"
