@@ -1,0 +1,201 @@
+{
+  "schemaVersion": "1.0",
+  "description": "Face ID iPhones supported by IpoView: hardware model identifier (utsname / hw.machine) -> marketing name and display ppi. A model not listed blocks the test (docs/data-contracts.md section 7). nativeScale is not stored here: it is read at runtime from UIScreen.nativeScale.",
+  "verifiedOn": "2026-09-26",
+  "ppiSourceNote": "ppi read from each model's Apple Tech Specs page (support.apple.com), linked per entry.",
+  "identifierSource": "https://theapplewiki.com/wiki/Models",
+  "identifierSourceNote": "Identifiers are not published by Apple; they come from The Apple Wiki 'Models' page, cross-checked with https://gist.github.com/adamawolf/3048717 (up to iPhone 17e) and ipsw.me / EveryMac (iPhone 18 Pro and Pro Max).",
+  "excluded": "iPhone SE and iPhone 8 (Touch ID); iPhone Duo (iPhone19,4, Touch ID, on sale from 2026-10-23). In the iOS Simulator hw.machine returns arm64/x86_64; the simulated model is in the SIMULATOR_MODEL_IDENTIFIER environment variable.",
+  "devices": {
+    "iPhone10,3": {
+      "name": "iPhone X",
+      "ppi": 458,
+      "ppiSource": "https://support.apple.com/en-us/111864"
+    },
+    "iPhone10,6": {
+      "name": "iPhone X",
+      "ppi": 458,
+      "ppiSource": "https://support.apple.com/en-us/111864"
+    },
+    "iPhone11,2": {
+      "name": "iPhone XS",
+      "ppi": 458,
+      "ppiSource": "https://support.apple.com/en-us/111881"
+    },
+    "iPhone11,4": {
+      "name": "iPhone XS Max",
+      "ppi": 458,
+      "ppiSource": "https://support.apple.com/en-us/111880"
+    },
+    "iPhone11,6": {
+      "name": "iPhone XS Max",
+      "ppi": 458,
+      "ppiSource": "https://support.apple.com/en-us/111880"
+    },
+    "iPhone11,8": {
+      "name": "iPhone XR",
+      "ppi": 326,
+      "ppiSource": "https://support.apple.com/en-us/111868"
+    },
+    "iPhone12,1": {
+      "name": "iPhone 11",
+      "ppi": 326,
+      "ppiSource": "https://support.apple.com/en-us/111865"
+    },
+    "iPhone12,3": {
+      "name": "iPhone 11 Pro",
+      "ppi": 458,
+      "ppiSource": "https://support.apple.com/en-us/111879"
+    },
+    "iPhone12,5": {
+      "name": "iPhone 11 Pro Max",
+      "ppi": 458,
+      "ppiSource": "https://support.apple.com/en-us/111878"
+    },
+    "iPhone13,1": {
+      "name": "iPhone 12 mini",
+      "ppi": 476,
+      "ppiSource": "https://support.apple.com/en-us/111877"
+    },
+    "iPhone13,2": {
+      "name": "iPhone 12",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/111876"
+    },
+    "iPhone13,3": {
+      "name": "iPhone 12 Pro",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/111875"
+    },
+    "iPhone13,4": {
+      "name": "iPhone 12 Pro Max",
+      "ppi": 458,
+      "ppiSource": "https://support.apple.com/en-us/111874"
+    },
+    "iPhone14,4": {
+      "name": "iPhone 13 mini",
+      "ppi": 476,
+      "ppiSource": "https://support.apple.com/en-us/111873"
+    },
+    "iPhone14,5": {
+      "name": "iPhone 13",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/111872"
+    },
+    "iPhone14,2": {
+      "name": "iPhone 13 Pro",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/111871"
+    },
+    "iPhone14,3": {
+      "name": "iPhone 13 Pro Max",
+      "ppi": 458,
+      "ppiSource": "https://support.apple.com/en-us/111870"
+    },
+    "iPhone14,7": {
+      "name": "iPhone 14",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/111850"
+    },
+    "iPhone14,8": {
+      "name": "iPhone 14 Plus",
+      "ppi": 458,
+      "ppiSource": "https://support.apple.com/en-us/111854"
+    },
+    "iPhone15,2": {
+      "name": "iPhone 14 Pro",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/111849"
+    },
+    "iPhone15,3": {
+      "name": "iPhone 14 Pro Max",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/111846"
+    },
+    "iPhone15,4": {
+      "name": "iPhone 15",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/111831"
+    },
+    "iPhone15,5": {
+      "name": "iPhone 15 Plus",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/111830"
+    },
+    "iPhone16,1": {
+      "name": "iPhone 15 Pro",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/111829"
+    },
+    "iPhone16,2": {
+      "name": "iPhone 15 Pro Max",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/111828"
+    },
+    "iPhone17,3": {
+      "name": "iPhone 16",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/121029"
+    },
+    "iPhone17,4": {
+      "name": "iPhone 16 Plus",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/121030"
+    },
+    "iPhone17,1": {
+      "name": "iPhone 16 Pro",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/121031"
+    },
+    "iPhone17,2": {
+      "name": "iPhone 16 Pro Max",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/121032"
+    },
+    "iPhone17,5": {
+      "name": "iPhone 16e",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/122208"
+    },
+    "iPhone18,3": {
+      "name": "iPhone 17",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/125089"
+    },
+    "iPhone18,4": {
+      "name": "iPhone Air",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/125092"
+    },
+    "iPhone18,1": {
+      "name": "iPhone 17 Pro",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/125090"
+    },
+    "iPhone18,2": {
+      "name": "iPhone 17 Pro Max",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/125091"
+    },
+    "iPhone18,5": {
+      "name": "iPhone 17e",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/126470"
+    },
+    "iPhone19,2": {
+      "name": "iPhone 18 Pro",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/148590"
+    },
+    "iPhone19,3": {
+      "name": "iPhone 18 Pro Max",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/148591"
+    },
+    "iPhone19,7": {
+      "name": "iPhone 18 Pro Max",
+      "ppi": 460,
+      "ppiSource": "https://support.apple.com/en-us/148591"
+    }
+  }
+}

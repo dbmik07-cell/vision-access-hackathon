@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "context": {
+    "referenceDistanceMm": 400,
+    "ppi": 460,
+    "nativeScale": 3
+  },
+  "text": {
+    "fontFamily": "Atkinson Hyperlegible",
+    "fontSizeCssPx": 89.1409579126758,
+    "lineHeight": 1.5,
+    "letterSpacingEm": 0.12,
+    "wordSpacingEm": 0.16,
+    "paragraphSpacingEm": 2,
+    "align": "left"
+  },
+  "layout": {
+    "singleColumn": true,
+    "maxLineWidthCh": 60,
+    "mode": "normal",
+    "moveEdgeElements": false
+  },
+  "color": {
+    "theme": "original",
+    "background": null,
+    "text": null,
+    "minTextContrast": 4.5,
+    "minUIContrast": 3,
+    "preserveHue": true,
+    "imageBrightness": 1
+  },
+  "controls": {
+    "underlineLinks": true,
+    "minTargetPt": 64,
+    "focusOutlinePx": 3
+  },
+  "cleanup": {
+    "removeCookieBanners": true,
+    "stopAnimations": true,
+    "useReadability": true
+  },
+  "speech": {
+    "tapToSpeak": false,
+    "rateWpm": null
+  },
+  "screen": {
+    "brightness": null
+  }
+}

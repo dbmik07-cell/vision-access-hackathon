@@ -1,0 +1,22 @@
+{
+  "cases": [
+    {
+      "distanceMm": 400,
+      "angleArcmin": 5,
+      "ppi": 460,
+      "nativeScale": 3
+    },
+    {
+      "distanceMm": 350,
+      "angleArcmin": 60,
+      "ppi": 476,
+      "nativeScale": 2.88
+    },
+    {
+      "distanceMm": 450,
+      "angleArcmin": 480,
+      "ppi": 326,
+      "nativeScale": 2
+    }
+  ]
+}

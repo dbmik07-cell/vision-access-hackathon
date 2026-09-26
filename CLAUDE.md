@@ -2,7 +2,7 @@
 
 ## Ambito e responsabilita
 
-Applicazione nativa iOS che deve funzionare localmente sull'iPhone. Questa fase prepara soltanto la struttura: MVP, test, modelli statistici e regole di adattamento saranno definiti successivamente con `/grill-with-docs`.
+Applicazione nativa iOS che deve funzionare localmente sull'iPhone. Il contratto MVP (test, modelli statistici, regole di adattamento, casi golden) e definito e approvato in `docs/data-contracts.md`, che prevale sulla specifica originale `docs/spec/ipoview-spec.md`.
 
 - `ios/`: Rocco, app nativa SwiftUI/Xcode e implementazione Swift. Rocco possiede anche il JavaScript per l'adattamento delle pagine dentro WKWebView.
 - `backend/`: Michele, esclusivamente Python per implementazioni statistiche di riferimento, simulazioni e test. E un workspace Python, non un server runtime dell'app.
@@ -11,7 +11,7 @@ Applicazione nativa iOS che deve funzionare localmente sull'iPhone. Questa fase 
 - `tests/`: cartella esistente mantenuta; i test Python dei modelli appartengono a `backend/tests/`.
 - Non introdurre server runtime, FastAPI, database, API Anthropic, RAG, database vettoriali o dipendenze di rete.
 - Il crowding e coperto dal test di lettura in `backend/reading/`; non creare un modulo o test autonomo `crowding/`.
-- Non implementare funzionalita applicative o inventare modelli statistici in questa fase.
+- Non inventare modelli statistici: implementa solo cio che il contratto definisce. Le funzionalita post-MVP richiedono prima un aggiornamento del contratto.
 
 ## Collaborazione e Git
 
@@ -27,9 +27,9 @@ Applicazione nativa iOS che deve funzionare localmente sull'iPhone. Questa fase 
 
 - Python e Swift devono seguire la stessa specifica condivisa e gli stessi casi golden in `shared/examples/`.
 - Prima di implementare, concorda e documenta il contratto in `docs/data-contracts.md` e negli schemi in `shared/`.
-- Gli schemi attuali sono soltanto segnaposto permissivi: non costituiscono validazione dei dati applicativi. Non inventare campi, unita, soglie o valori golden.
-- Per simulazioni e confronti Python/Swift usa seed deterministici dove necessario. Concorda anche generatore e fixture: lo stesso seed da solo non garantisce sequenze uguali tra linguaggi.
-- Confronta i risultati numerici con tolleranze esplicite concordate per il modello, mai con uguaglianza esatta dei float. Le tolleranze saranno definite con la specifica.
+- Gli schemi in `shared/` sono rigidi (`additionalProperties: false`) e versionati; tutti i parametri numerici stanno in `shared/parameters.json` e non si ricopiano nel codice. Non inventare campi, unita, soglie o valori golden.
+- I test adattivi si confrontano tra Python e Swift con tracce scriptate, non con seed condivisi (ADR 0001); il seed serve solo nelle simulazioni Python.
+- Confronta i risultati numerici con le tolleranze di `shared/parameters.json`, mai con uguaglianza esatta dei float; i campi discreti si confrontano in modo esatto.
 - Coordina ogni variazione del contratto con entrambi gli sviluppatori; aggiorna specifica, casi golden e implementazioni interessate senza incompatibilita silenziose.
 
 ## Qualita e semplicita
