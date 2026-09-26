@@ -5,7 +5,7 @@ from collections.abc import Callable
 from contract import Contract, load_contract
 from quest.engine import QuestPlus
 
-# Provisional, not contract (issue #5, open point 1): the goldens only define "responsesExhausted".
+# endedBy values (shared/examples/README.md, agreed in issue #14).
 ENGINE_STOP = "engineStop"
 RESPONSES_EXHAUSTED = "responsesExhausted"
 
@@ -27,7 +27,7 @@ def _observer(spec: dict) -> tuple[Observer, int | None]:
 def run_trace(trace: dict, contract: Contract | None = None) -> dict:
     """Per-step outputs and the final block in the golden format; engine-space values throughout.
 
-    stimulusIndex indexes the full stimulus list (provisional, issue #5 open point 2).
+    stimulusIndex indexes the full stimulus list; expectedEntropy follows the admissible-list order.
     """
     contract = contract or load_contract()
     stimuli = contract.resolve_stimuli(trace["stimuli"])

@@ -18,11 +18,6 @@ from tests.golden_cases import EXAMPLES_DIR, read_json
 from tests.test_acuity import with_acuity
 from tests.test_contrast import UNCAPPED_ACUITY_UPPER, with_contrast
 
-MAX_TRIALS_STOPS_EARLY = pytest.mark.xfail(
-    strict=True,
-    reason="stops at n = 18 by the SD rule: the inversions need review with Rocco before freezing (#12)",
-)
-
 
 def read_trace(name):
     return read_json(EXAMPLES_DIR / "quest" / name / "trace.json")
@@ -67,7 +62,6 @@ def test_reaches_sd_candidate_passes_its_plausibility_checks(contract, name):
     assert [check.description for check in candidate(contract, name).checks if not check.passed] == []
 
 
-@MAX_TRIALS_STOPS_EARLY
 def test_acuity_max_trials_candidate_reaches_max_trials(contract):
     assert candidate(contract, "acuity-max-trials").checks[0].passed
 

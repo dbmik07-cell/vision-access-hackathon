@@ -4,7 +4,7 @@ Tier 1. Acuita con osservatore deterministico (corretta se e solo se `x >= 0.51`
 
 ## Stato
 
-Gli output attesi per passo sono `pending`: li genera l'implementazione di riferimento Python solo dopo aver superato `tiny-hand-computed` e i controlli sotto; poi il file si aggiorna con `status: final` in una PR condivisa.
+`final`, congelato con l'issue #14 dall'output dell'implementazione di riferimento Python dopo `tiny-hand-computed` e i controlli sotto: mediana 0.527, `ci95` [0.421, 0.606], stop a `n = 18` per SD 0.0457, `reliable`.
 
 ## Oracolo manuale (controlli di plausibilita)
 
