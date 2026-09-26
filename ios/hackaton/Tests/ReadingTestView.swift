@@ -5,7 +5,7 @@ import SwiftUI
 struct ReadingTestView: View {
     let startLogMAR: Double
     let demo: Bool
-    var onFinish: (ReadingBlock) -> Void
+    var onFinish: (ReadingMeasurement) -> Void
     var onQuit: () -> Void
 
     enum Stage { case permission, ready, reading, done }
@@ -20,7 +20,7 @@ struct ReadingTestView: View {
     @State private var speechWorks = false
     private var tracker = FaceDistanceTracker.shared
 
-    init(startLogMAR: Double, demo: Bool, onFinish: @escaping (ReadingBlock) -> Void, onQuit: @escaping () -> Void) {
+    init(startLogMAR: Double, demo: Bool, onFinish: @escaping (ReadingMeasurement) -> Void, onQuit: @escaping () -> Void) {
         self.startLogMAR = startLogMAR
         self.demo = demo
         self.onFinish = onFinish
@@ -48,28 +48,28 @@ struct ReadingTestView: View {
             HStack {
                 DistanceBadge()
                 Spacer()
-                Button("Esci") { listener.stop(); onQuit() }.buttonStyle(.glass).font(.ipo(.headline))
+                Button("Exit") { listener.stop(); onQuit() }.buttonStyle(.glass).font(.ipo(.headline))
             }
             .dynamicTypeSize(.large)
             switch stage {
             case .permission:
                 Spacer()
                 ProgressView()
-                Text("Preparo il microfono…").font(.ipo(.title2))
+                Text("Getting the microphone ready…").font(.ipo(.title2))
                 Spacer()
             case .ready:
                 Spacer()
-                Text("Leggi ad alta voce la frase, il più veloce possibile. Quando hai finito, tocca lo schermo.")
+                Text("Read the sentence out loud, as fast as you can. When you're done, tap the screen.")
                     .font(.ipo(.title2, bold: true)).multilineTextAlignment(.center)
                 if !speechWorks {
-                    Text("Riconoscimento vocale non disponibile: il tempo si ferma con il tocco.")
+                    Text("Speech recognition not available: timing stops with a tap instead.")
                         .font(.ipo(.headline)).foregroundStyle(.orange).multilineTextAlignment(.center)
                 }
                 Spacer()
-                BigButton(title: "Mostra la prima frase", systemImage: "text.alignleft") { showSentence() }
+                BigButton(title: "Show the first sentence", systemImage: "text.alignleft") { showSentence() }
             case .reading:
                 BigProgressBar(value: Double(samples.count) / Double(demo ? 6 : 16),
-                               label: "Frase \(samples.count + 1) · al massimo \(demo ? 6 : 16)")
+                               label: "Sentence \(samples.count + 1) · up to \(demo ? 6 : 16)")
                 Spacer()
                 Text(sentence)
                     .font(.custom("AtkinsonHyperlegible-Regular", fixedSize: fontPt(size)))
@@ -80,9 +80,9 @@ struct ReadingTestView: View {
                     .contentShape(Rectangle())
                 Spacer()
                 HStack {
-                    Text("\(size.it(1)) logMAR · frase \(samples.count + 1)").font(.ipo(.footnote)).foregroundStyle(.gray)
+                    Text("\(size.it(1)) logMAR · sentence \(samples.count + 1)").font(.ipo(.footnote)).foregroundStyle(.gray)
                     Spacer()
-                    Button("Non riesco a leggerla") { finish(sentenceRead: false) }
+                    Button("I can't read it") { finish(sentenceRead: false) }
                         .font(.ipo(.headline, bold: true)).buttonStyle(.glass)
                 }
                 .dynamicTypeSize(.large)
@@ -97,12 +97,12 @@ struct ReadingTestView: View {
         .onTapGesture { if stage == .reading { finish(sentenceRead: true) } }
         .task {
             // Permessi chiesti solo adesso, spiegati a voce un attimo prima (SPEC 3).
-            Voice.shared.say("Test di lettura. Ora ti chiedo il microfono: serve solo a capire quando hai finito di leggere, e funziona senza internet.")
+            Voice.shared.say("Reading test. Now I'll ask for the microphone: it's only used to tell when you've finished reading, and it works without internet.")
             try? await Task.sleep(for: .seconds(4))
             speechWorks = await listener.requestPermissions()
             size = min(startLogMAR, maxLogMAR)
             stage = .ready
-            Voice.shared.say("Leggi ad alta voce ogni frase, il più veloce possibile. Le frasi diventano sempre più piccole. Quando hai finito una frase, tocca lo schermo.")
+            Voice.shared.say("Read each sentence out loud, as fast as you can. The sentences get smaller and smaller. When you've finished a sentence, tap the screen.")
         }
         .onDisappear { listener.stop() }
     }
@@ -159,13 +159,13 @@ struct ReadingTestView: View {
         let fit = ReadingAnalysis.twoLimbFit(samples)
         let acuity = ReadingAnalysis.readingAcuity(samples) ?? (samples.map(\.logMAR).max() ?? size)
         var flags: [String] = []
-        if !speechWorks { flags.append("tempo misurato con il tocco") }
-        if samples.count < 4 { flags.append("poche frasi lette (\(samples.count))") }
+        if !speechWorks { flags.append("timing measured by tap") }
+        if samples.count < 4 { flags.append("few sentences read (\(samples.count))") }
         let measured = fit != nil && samples.filter { $0.wpm > 0 }.count >= 3
         let cps = fit?.cps ?? acuity + 0.2
         // Intervallo pratico: ± un passo della prova (0,1 logMAR).
         let rel: ContractReliability = !measured ? .unreliable : (flags.isEmpty ? .reliable : .doubtful)
-        onFinish(ReadingBlock(source: .measured, measured: measured, criticalPrintSizeLogMAR: cps, ci95: [cps - 0.1, cps + 0.1],
+        onFinish(ReadingMeasurement(source: .measured, measured: measured, criticalPrintSizeLogMAR: cps, ci95: [cps - 0.1, cps + 0.1],
                                maxReadingSpeedWpm: fit?.mrs ?? (samples.map(\.wpm).max() ?? 0),
                                readingAcuityLogMAR: acuity, reliability: rel, flags: flags, samples: samples))
     }

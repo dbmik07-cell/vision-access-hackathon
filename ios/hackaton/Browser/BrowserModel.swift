@@ -17,9 +17,9 @@ enum OfflinePage: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .trenitalia: "Orari dei treni"
-        case .articolo: "Articolo di giornale"
-        case .ricerca: "Risultati di una ricerca"
+        case .trenitalia: "Train times"
+        case .articolo: "News article"
+        case .ricerca: "Search results"
         }
     }
     var icon: String {
@@ -113,7 +113,7 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
     /// Dominio senza "www." ("google.com"); "Pagina salvata" per i file del bundle.
     var domain: String {
         guard let url = currentURL else { return "" }
-        if url.isFileURL { return "Pagina salvata" }
+        if url.isFileURL { return "Saved page" }
         let host = url.host() ?? url.absoluteString
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
@@ -131,8 +131,6 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
 
     // MARK: Profilo e piano
 
-    @ObservationIgnored private var didChooseInitialMode = false
-
     func update(profile: VisualProfile?) {
         self.profile = profile
         rebuildPlan()
@@ -140,13 +138,8 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
 
     private func rebuildPlan() {
         let profile = self.profile
-        // Vista nella norma (SPEC 6, caso A): nessun adattamento di default, resta disponibile "Per me".
-        if !didChooseInitialMode, let profile {
-            didChooseInitialMode = true
-            if profile.summary.normalVision && profile.visualField?.source != .preset && profile.amsler?.source != .preset {
-                adapted = false
-            }
-        }
+        // Contratto (sezione 6, R1): nessun caso speciale per la vista nella norma;
+        // il piano condiviso si applica sempre, anche con normalVision == true.
         let base = profile ?? PresetProfiles.baseline(device: ProfileBuilder.device)
         var newPlan = RulesEngine.plan(profile: base, context: BrowserContext.current())
         if extensionsEnabled { Self.applyPostMVPExtensions(&newPlan, profile: base) }
@@ -181,16 +174,15 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
         }
     }
 
-    /// Estensione post-MVP (fuori dai casi golden): R9 con meno di 12 caratteri per riga sullo schermo →
-    /// nel Reader si tocca il paragrafo per ascoltarlo. Non cambia mai layout.mode: resta "normal" (contratto).
+    /// Estensione post-MVP (fuori dai casi golden, disattivata di default): R9 con meno di 12 caratteri
+    /// per riga sullo schermo → nel Reader si tocca il paragrafo per ascoltarlo. Isolata dal contratto:
+    /// non cambia mai layout.mode ("normal") né le altre regole MVP, tocca solo speech quando abilitata.
     static func applyPostMVPExtensions(_ plan: inout AdaptationPlan, profile: VisualProfile) {
         let screenCh = (Double(DeviceDisplay.screenSizePt.width) - 24)
             / (plan.text.fontSizeCssPx * (ContractParameters.fontZeroWidthEm + plan.text.letterSpacingEm))
         if screenCh < 12 {
             plan.speech.tapToSpeak = true
-            if let wpm = profile.reading?.maxReadingSpeedWpm, profile.reading?.measured == true {
-                plan.speech.rateWpm = min(220, max(80, wpm))
-            }
+            plan.speech.rateWpm = 160
         }
     }
 
@@ -267,7 +259,7 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
             self.currentURL = webView.url
             self.readerOn = false
             self.bodyText = nil
-            self.addressText = webView.url?.isFileURL == true ? "Pagina salvata" : (webView.url?.absoluteString ?? "")
+            self.addressText = webView.url?.isFileURL == true ? "Saved page" : (webView.url?.absoluteString ?? "")
         }
     }
 
@@ -282,7 +274,7 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
         MainActor.assumeIsolated {
             let e = error as NSError
             if e.code != NSURLErrorCancelled {
-                self.loadError = "La pagina non si carica (sei senza rete?). Puoi aprire una delle pagine salvate."
+                self.loadError = "The page won't load (are you offline?). You can open one of the saved pages."
             }
         }
     }
@@ -310,7 +302,7 @@ final class BrowserModel: NSObject, WKNavigationDelegate, WKScriptMessageHandler
                 }
             case "readerUnavailable":
                 readerOn = false
-                Voice.shared.say("Su questa pagina il Reader non è disponibile.")
+                Voice.shared.say("Reader is not available on this page.")
             case "pageshow":
                 // Pagina tornata dalla cache avanti/indietro: stato di adapter.js vecchio → reset + apply una volta sola
                 readerOn = false

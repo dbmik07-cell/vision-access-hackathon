@@ -43,7 +43,7 @@
   const WARM_WHITE = { r: 255, g: 253, b: 247, a: 1 };  // tema chiaro: provvisorio finché Rocco non sceglie
   // Alias dei vecchi valori italiani → valori del contratto
   const THEME_ALIAS = { originale: 'original', chiaro: 'light', scuro: 'dark' };
-  const MODE_ALIAS = { normale: 'normal', paragrafo: 'paragraph', 'lettura-grande': 'large-reading' };
+  const MODE_ALIAS = { normale: 'normal', paragrafo: 'paragraph', 'lettura-grande': 'largeReading' };
   const MID_LUM = 0.179;  // luminanza in cui nero e bianco danno lo stesso contrasto
 
   const COOKIE_RE = /cookie|consent|gdpr|popup|pop-up|modal|newsletter|overlay|iubenda|onetrust|didomi|quantcast|cmp-|paywall|lightbox|backdrop|interstitial/i;
@@ -726,7 +726,7 @@
     if (!navs.length) return;
     navs.forEach(hide);
     const btn = document.createElement('button');
-    btn.type = 'button'; btn.id = 'ipoview-menu-btn'; btn.textContent = 'Menù';
+    btn.type = 'button'; btn.id = 'ipoview-menu-btn'; btn.textContent = 'Menu';
     btn.setAttribute('data-ipoview', 'ui'); btn.setAttribute('aria-expanded', 'false');
     btn.addEventListener('click', () => {
       const open = btn.getAttribute('aria-expanded') !== 'true';
@@ -742,7 +742,7 @@
 
   // ---------------------------------------------------------------------------
   // Estensioni post-MVP: "paragraph" (R5, un paragrafo per schermata) e
-  // "large-reading" (R9, un paragrafo alla volta, tocco = ascolto). Nell'MVP mode = "normal".
+  // "largeReading" (R9, un paragrafo alla volta, tocco = ascolto). Nell'MVP mode = "normal".
   // ---------------------------------------------------------------------------
   const BLOCK_SEL = 'h1,h2,h3,h4,p,li,dd,blockquote,tr';
   const INNER_BLOCK_SEL = 'h1,h2,h3,h4,p,li,dd,blockquote,table';
@@ -802,12 +802,12 @@
 
     const ov = document.createElement('div');
     ov.id = 'ipoview-paragraph'; ov.setAttribute('data-ipoview', 'ui');
-    ov.setAttribute('lang', document.documentElement.lang || 'it'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'Lettura un paragrafo alla volta');
+    ov.setAttribute('lang', document.documentElement.lang || 'en'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'Reader, one paragraph at a time');
     const text = document.createElement('div'); text.className = 'ipo-p-text'; text.setAttribute('aria-live', 'polite');
     const counter = document.createElement('div'); counter.className = 'ipo-p-count';
     const bar = document.createElement('div'); bar.className = 'ipo-p-bar';
-    const prev = document.createElement('button'); prev.type = 'button'; prev.className = 'ipo-p-btn'; prev.textContent = '◀ Precedente';
-    const next = document.createElement('button'); next.type = 'button'; next.className = 'ipo-p-btn'; next.textContent = 'Successivo ▶';
+    const prev = document.createElement('button'); prev.type = 'button'; prev.className = 'ipo-p-btn'; prev.textContent = '◀ Previous';
+    const next = document.createElement('button'); next.type = 'button'; next.className = 'ipo-p-btn'; next.textContent = 'Next ▶';
     bar.append(prev, next);
     const bottom = document.createElement('div'); bottom.className = 'ipo-p-bottom';
     bottom.append(counter, bar); ov.append(text, bottom);
@@ -910,7 +910,7 @@
     const th = plan.color.theme;
     plan.color.theme = THEME_ALIAS[th] || (th === 'light' || th === 'dark' ? th : 'original');
     const md = plan.layout.mode;
-    plan.layout.mode = MODE_ALIAS[md] || (md === 'paragraph' || md === 'large-reading' ? md : 'normal');
+    plan.layout.mode = MODE_ALIAS[md] || (md === 'paragraph' || md === 'largeReading' ? md : 'normal');
     // screen.brightness è gestito in Swift: qui si ignora
     // Dimensione impostata prima di apply: ha la precedenza (poi si consuma)
     if (S.pendingFontPx != null) { plan.text.fontSizeCssPx = S.pendingFontPx; S.pendingFontPx = null; }
@@ -921,7 +921,7 @@
     // Viewport 1:1 PRIMA di tutto (ADR 0003): 1 CSS px = 1 punto iOS
     step('viewport', forceViewport);
     // hyphens:auto richiede una lingua: se manca, italiano
-    step('lang', () => { if (!document.documentElement.getAttribute('lang')) setAttr(document.documentElement, 'lang', 'it'); });
+    step('lang', () => { if (!document.documentElement.getAttribute('lang')) setAttr(document.documentElement, 'lang', 'en'); });
     S.reader = !!step('readability', () => tryReader(plan));
     const ruleMode = !S.reader;
     if (body) step('origSizes', () => recordOrigSizes(body));

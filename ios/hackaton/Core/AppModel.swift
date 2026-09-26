@@ -8,9 +8,9 @@ enum FieldPreset: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .nessuno: "Nessuno (usa i test)"
-        case .tunnel: "Visione a tunnel (5°)"
-        case .centrale: "Macchia centrale"
+        case .nessuno: "None (use tests)"
+        case .tunnel: "Tunnel vision (5°)"
+        case .centrale: "Central scotoma"
         }
     }
 }
@@ -28,6 +28,11 @@ final class AppModel {
     /// Profilo misurato con i test.
     var profile: VisualProfile? {
         didSet { ProfileStore.save(profile) }
+    }
+
+    /// Test di lettura (post-MVP, fuori dal contratto): dati dell'app, non del `VisualProfile` esportato.
+    var readingMeasurement: ReadingMeasurement? {
+        didSet { ReadingStore.save(readingMeasurement) }
     }
 
     var demoMode: Bool {
@@ -55,9 +60,10 @@ final class AppModel {
 
     init() {
         profile = ProfileStore.load()
+        readingMeasurement = ReadingStore.load()
         demoMode = UserDefaults.standard.bool(forKey: "demoMode")
         fieldPreset = FieldPreset(rawValue: UserDefaults.standard.string(forKey: "fieldPreset") ?? "") ?? .nessuno
-        postMVPExtensions = UserDefaults.standard.object(forKey: "postMVPExtensions") as? Bool ?? true
+        postMVPExtensions = UserDefaults.standard.object(forKey: "postMVPExtensions") as? Bool ?? false
         diagnostics = UserDefaults.standard.stringArray(forKey: "diagnostics") ?? []
         showDistance = UserDefaults.standard.bool(forKey: "showDistance")
         route = profile == nil ? .welcome : .browser
@@ -89,17 +95,19 @@ final class AppModel {
         route = .test
     }
 
-    func finishTest(with newProfile: VisualProfile, diagnostics: [String] = []) {
+    func finishTest(with newProfile: VisualProfile, diagnostics: [String] = [], reading: ReadingMeasurement? = nil) {
         self.diagnostics = diagnostics
         var p = newProfile
         // Conservo le correzioni manuali della persona.
         if let old = profile { p.userAdjustments = old.userAdjustments }
         profile = p
+        readingMeasurement = reading
         route = .results
     }
 
     func resetAll() {
         profile = nil
+        readingMeasurement = nil
         fieldPreset = .nessuno
         route = .welcome
     }
@@ -141,6 +149,25 @@ enum ProfileStore {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         return (try? String(data: encoder.encode(profile), encoding: .utf8)) ?? ""
+    }
+}
+
+/// Test di lettura (post-MVP): persistenza separata, fuori dal `VisualProfile` del contratto.
+enum ReadingStore {
+    private static var url: URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("reading-measurement.json")
+    }
+
+    static func save(_ measurement: ReadingMeasurement?) {
+        guard let measurement else { try? FileManager.default.removeItem(at: url); return }
+        if let data = try? JSONEncoder().encode(measurement) { try? data.write(to: url, options: .atomic) }
+    }
+
+    static func load() -> ReadingMeasurement? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(ReadingMeasurement.self, from: data)
     }
 }
 

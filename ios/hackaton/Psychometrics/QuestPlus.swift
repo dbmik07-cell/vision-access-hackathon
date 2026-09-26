@@ -244,15 +244,13 @@ nonisolated enum QuestConfigs {
                   function: PsychometricFunction(guess: P.guessRate, lapse: P.lapseRate, increasingWithStimulus: true))
     }
 
-    /// Modalità demo (fuori contratto, solo per la presentazione): test più corti.
-    static func acuityStop(demo: Bool) -> StopRule {
-        demo ? StopRule(minTrials: 8, maxTrials: 16, targetSD: 0.08)
-             : StopRule(minTrials: P.minTrials, maxTrials: P.maxTrials, targetSD: P.acuityTargetSd)
+    /// Contratto (sezione 5): stop a n ≥ 12 con SD sotto l'obiettivo, oppure n = 30. Nessuna scorciatoia demo.
+    static func acuityStop(demo: Bool = false) -> StopRule {
+        StopRule(minTrials: P.minTrials, maxTrials: P.maxTrials, targetSD: P.acuityTargetSd)
     }
 
-    static func contrastStop(demo: Bool) -> StopRule {
-        demo ? StopRule(minTrials: 8, maxTrials: 14, targetSD: 0.12)
-             : StopRule(minTrials: P.minTrials, maxTrials: P.maxTrials, targetSD: P.contrastTargetSd)
+    static func contrastStop(demo: Bool = false) -> StopRule {
+        StopRule(minTrials: P.minTrials, maxTrials: P.maxTrials, targetSD: P.contrastTargetSd)
     }
 
     /// Affidabilità MVP: reliable se q97,5 − q2,5 ≤ W, altrimenti doubtful con flag wideInterval.

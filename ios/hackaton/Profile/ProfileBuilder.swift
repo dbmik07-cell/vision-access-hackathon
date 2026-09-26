@@ -13,16 +13,10 @@ enum ProfileBuilder {
 
     static func acuityBlock(_ e: ETestEngine) -> AcuityBlock {
         let q = e.quest
-        var (rel, flags) = QuestConfigs.reliability(q, maxCiWidth: P.acuityReliableMaxCiWidth, stopSd: P.acuityTargetSd)
-        var median = q.thresholdMedian
-        var ci = [q.ci95.lowerBound, q.ci95.upperBound]
+        let (rel, flags) = QuestConfigs.reliability(q, maxCiWidth: P.acuityReliableMaxCiWidth, stopSd: P.acuityTargetSd)
+        let median = q.thresholdMedian
+        let ci = [q.ci95.lowerBound, q.ci95.upperBound]
         let limit = e.displayLimit   // il più piccolo stimolo ammissibile durante il test
-        if e.censor == .belowLimit {
-            // La E più grande non viene vista: soglia oltre il limite, adattamento al massimo.
-            ci[1] = P.acuityThresholdMax
-            median = max(median, e.easyLimitValue)
-            rel = .reliable; flags.removeAll { $0 == "wideInterval" }
-        }
         return AcuityBlock(source: .measured, logMAR: median, ci95: ci, reliability: rel, flags: flags,
                            whoCategory: WHOCategory.from(logMAR: median), trials: e.trialCount,
                            displayLimitLogMAR: limit,
@@ -35,13 +29,9 @@ enum ProfileBuilder {
         var (rel, flags) = QuestConfigs.reliability(q, maxCiWidth: P.contrastReliableMaxCiWidth, stopSd: P.contrastTargetSd)
         if letterCapped { flags.append("contrastLetterSizeCapped") }
         // logCS = −t: la conversione avviene solo qui, e gli estremi di ci95 si scambiano.
-        var median = -q.thresholdMedian
-        var ci = [-q.ci95.upperBound, -q.ci95.lowerBound]
+        let median = -q.thresholdMedian
+        let ci = [-q.ci95.upperBound, -q.ci95.lowerBound]
         let ceiling = e.displayLimit.map { -$0 }   // livello ammissibile più alto in logCS
-        if e.censor == .belowLimit {
-            median = min(median, 0); ci = [0, max(ci[1], 0)]
-            rel = .reliable; flags.removeAll { $0 == "wideInterval" }
-        }
         return ContrastBlock(source: .measured, logCS: median, ci95: ci, reliability: rel, flags: flags,
                              band: ContrastBand.from(logCS: median), trials: e.trialCount,
                              ceilingLogCS: ceiling, censoredAtCeiling: ceiling.map { median > $0 } ?? false)
@@ -72,7 +62,6 @@ enum ProfileBuilder {
         var measured: [ContractReliability] = []
         if p.acuity.source == .measured { measured.append(p.acuity.reliability) }
         if p.contrast.source == .measured { measured.append(p.contrast.reliability) }
-        if let r = p.reading, r.source == .measured { measured.append(r.reliability) }
         if let f = p.visualField, f.source == .measured { measured += f.eyes.compactMap(\.reliability) }
         p.summary = SummaryBlock(normalVision: normal, overallReliability: measured.max())
     }
@@ -95,20 +84,20 @@ enum Diagnostics {
             variance += p * (1 - p) * l * l
         }
         if variance > 0, records.count >= 8, (observed - expected) / sqrt(variance) < -2 {
-            notes.append("risposte poco coerenti con la curva stimata")
+            notes.append("responses not very consistent with the estimated curve")
         }
         // Errori su stimoli facili (almeno 0,3 unità più facili della soglia).
         let errors = records.filter { !$0.correct }
         let easy = errors.filter { $0.stimulus >= t + 0.3 }
         if errors.count >= 3, Double(easy.count) / Double(errors.count) > 0.2 {
-            notes.append("\(easy.count) errori su lettere facili")
+            notes.append("\(easy.count) errors on easy letters")
         }
         if easy.filter({ $0.responseTimeMs < 400 }).count >= 2 {
-            notes.append("risposte sbagliate troppo veloci su lettere facili")
+            notes.append("wrong answers too fast on easy letters")
         }
         let d = records.map(\.distanceCM)
         if let lo = d.min(), let hi = d.max(), hi - lo > 10 {
-            notes.append("distanza variabile (\(Int(lo))–\(Int(hi)) cm)")
+            notes.append("variable distance (\(Int(lo))–\(Int(hi)) cm)")
         }
         return notes
     }

@@ -13,9 +13,9 @@ nonisolated enum ContractReliability: String, Codable, Sendable, Comparable {
 
     var label: String {
         switch self {
-        case .reliable: "affidabile"
-        case .doubtful: "dubbio"
-        case .unreliable: "non affidabile"
+        case .reliable: "reliable"
+        case .doubtful: "doubtful"
+        case .unreliable: "unreliable"
         }
     }
 }
@@ -40,11 +40,11 @@ nonisolated enum WHOCategory: String, Codable, Sendable, Comparable {
 
     var label: String {
         switch self {
-        case .none: "nessun deficit"
-        case .mild: "lieve"
-        case .moderate: "moderata"
-        case .severe: "grave"
-        case .blindness: "cecità"
+        case .none: "no deficit"
+        case .mild: "mild"
+        case .moderate: "moderate"
+        case .severe: "severe"
+        case .blindness: "blindness"
         }
     }
 }
@@ -63,10 +63,10 @@ nonisolated enum ContrastBand: String, Codable, Sendable {
 
     var label: String {
         switch self {
-        case .normal: "normale"
-        case .borderline: "al limite"
-        case .reduced: "ridotta"
-        case .severelyReduced: "molto ridotta"
+        case .normal: "normal"
+        case .borderline: "borderline"
+        case .reduced: "reduced"
+        case .severelyReduced: "severely reduced"
         }
     }
 }
@@ -139,10 +139,10 @@ nonisolated enum FieldPattern: String, Codable, Sendable {
 
     var label: String {
         switch self {
-        case .none: "nessuna riduzione"
-        case .peripheral: "riduzione periferica"
-        case .tunnel: "visione a tunnel"
-        case .scattered: "zone cieche sparse"
+        case .none: "no reduction"
+        case .peripheral: "peripheral reduction"
+        case .tunnel: "tunnel vision"
+        case .scattered: "scattered blind spots"
         }
     }
 }
@@ -178,7 +178,13 @@ nonisolated struct LightBlock: Codable, Sendable, Equatable {
     var preferredBrightness: Double?
 }
 
-/// Lettura: blocco riservato nel contratto (post-MVP, campi da definire). Qui i campi dell'app.
+/// Lettura: blocco riservato nel contratto (post-MVP, campi da definire): solo `source`.
+/// I dati misurati veri e propri sono in `ReadingMeasurement`, fuori dal `VisualProfile`
+/// esportato (non fanno parte dello schema condiviso).
+nonisolated struct ReadingBlock: Codable, Sendable, Equatable {
+    var source: BlockSource
+}
+
 nonisolated struct ReadingSample: Codable, Sendable, Equatable {
     var logMAR: Double
     var seconds: Double
@@ -187,7 +193,8 @@ nonisolated struct ReadingSample: Codable, Sendable, Equatable {
     var wpm: Double
 }
 
-nonisolated struct ReadingBlock: Codable, Sendable, Equatable {
+/// Risultato del test di lettura (post-MVP, fuori dal contratto): dati dell'app, non del VisualProfile.
+nonisolated struct ReadingMeasurement: Codable, Sendable, Equatable {
     var source: BlockSource
     var measured: Bool
     var criticalPrintSizeLogMAR: Double

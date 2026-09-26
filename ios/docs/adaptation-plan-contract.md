@@ -44,7 +44,7 @@ adapter.js non fa scienza della vista.
 ## Estensioni post-MVP di `layout.mode`
 
 - `"paragraph"` (R5): un paragrafo per schermata, con Avanti/Indietro e swipe.
-- `"large-reading"` (R9): come `"paragraph"`, e il tocco sul paragrafo lo fa leggere ad alta voce.
+- `"largeReading"` (R9): come `"paragraph"`, e il tocco sul paragrafo lo fa leggere ad alta voce.
 
 Nel tema `"original"` l'overlay usa sfondo bianco e testo `#1A1A1A`.
 
