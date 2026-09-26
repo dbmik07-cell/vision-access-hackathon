@@ -139,23 +139,26 @@ struct BigButton: View {
     var action: () -> Void
 
     var body: some View {
+        if prominent {
+            // Accento #FF8A4C con testo #141414 (7,9:1)
+            button.buttonStyle(.glassProminent).tint(.ipoAccent)
+        } else {
+            button.buttonStyle(.glass)
+        }
+    }
+
+    private var button: some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 if let systemImage { Image(systemName: systemImage) }
                 Text(title)
             }
             .font(.ipo(.title2, bold: true))
+            .foregroundStyle(prominent ? AnyShapeStyle(Color.ipoOnAccent) : AnyShapeStyle(.foreground))
             .frame(maxWidth: .infinity, minHeight: 64)
         }
-        .buttonStyle(prominent ? AnyButtonStyle(.glassProminent) : AnyButtonStyle(.glass))
         .controlSize(.extraLarge)
     }
-}
-
-struct AnyButtonStyle: PrimitiveButtonStyle {
-    private let make: (Configuration) -> AnyView
-    init<S: PrimitiveButtonStyle>(_ style: S) { make = { AnyView(style.makeBody(configuration: $0)) } }
-    func makeBody(configuration: Configuration) -> some View { make(configuration) }
 }
 
 extension Double {

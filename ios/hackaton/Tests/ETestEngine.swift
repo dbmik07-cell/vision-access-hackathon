@@ -17,10 +17,10 @@ enum Direction: String, CaseIterable, Codable {
 
     var italian: String {
         switch self {
-        case .right: "destra"
-        case .down: "basso"
-        case .left: "sinistra"
-        case .up: "alto"
+        case .right: "right"
+        case .down: "down"
+        case .left: "left"
+        case .up: "up"
         }
     }
 
@@ -39,19 +39,6 @@ struct EStimulus: Equatable {
     var gray: Int             // valore sRGB 0...255 della lettera (0 = nero)
     var direction: Direction
     var shownAt: Date
-    /// Stimolo più difficile disegnabile (E più piccola o contrasto più basso).
-    var atHardLimit = false
-    /// Stimolo più facile disegnabile (E più grande o nero pieno).
-    var atEasyLimit = false
-}
-
-/// Risultato censurato al limite dello schermo.
-enum ScreenCensor: String, Codable {
-    case none
-    /// Risposte giuste allo stimolo più difficile disegnabile: vista oltre il limite misurabile.
-    case aboveLimit
-    /// Lo stimolo più facile non viene visto: sotto il limite misurabile.
-    case belowLimit
 }
 
 enum ETestKind: Equatable {
@@ -69,14 +56,9 @@ final class ETestEngine {
     private(set) var current: EStimulus?
     private(set) var records: [TrialRecord] = []
     private(set) var finished = false
-    private(set) var censor: ScreenCensor = .none
-    /// Risposte giuste consecutive allo stimolo più difficile disegnabile.
-    @ObservationIgnored private var hardLimitStreak = 0
     /// Contratto: displayLimitLogMAR = il più piccolo stimolo ammissibile durante il test (acuità);
     /// per il contrasto il log10(C) più basso ammissibile (→ ceilingLogCS = −valore).
     private(set) var displayLimit: Double?
-    /// Volte in cui lo stimolo più facile non è stato visto.
-    @ObservationIgnored private var easyLimitMisses = 0
     /// Pausa automatica (distanza fuori 25–60 cm) o chiesta dalla persona.
     private(set) var autoPaused = false
     private(set) var manualPaused = false
@@ -179,25 +161,19 @@ final class ETestEngine {
 
     private func show(target: Double, distanceMM: Double) {
         let cands = candidates(distanceMM: distanceMM)
-        // Limiti dello schermo: con la variabile di facilità il più difficile è sempre il valore più piccolo.
-        let hardest = cands.min()
-        let easiest = cands.max()
-        if let hardest { displayLimit = min(displayLimit ?? hardest, hardest) }
-        let atHard = hardest.map { abs($0 - target) < 0.011 } ?? false
-        let atEasy = easiest.map { abs($0 - target) < 0.011 } ?? false
+        // Limite dello schermo: con la variabile di facilità il più difficile è sempre il valore più piccolo.
+        if let hardest = cands.min() { displayLimit = min(displayLimit ?? hardest, hardest) }
         var direction = Direction.allCases.randomElement()!
         if direction == lastDirection { direction = Direction.allCases.randomElement()! }
         lastDirection = direction
         switch kind {
         case .acuity:
             let h = min(maxLetterPx, VisualAngle.letterHeightPx(logMAR: target, distanceMM: distanceMM))
-            current = EStimulus(target: target, heightPx: h, gray: 0, direction: direction, shownAt: .now,
-                                atHardLimit: atHard, atEasyLimit: atEasy)
+            current = EStimulus(target: target, heightPx: h, gray: 0, direction: direction, shownAt: .now)
         case .contrast(let letterArcmin):
             let h = min(maxLetterPx, VisualAngle.px(mm: VisualAngle.mm(arcmin: letterArcmin, distanceMM: distanceMM)))
             let gray = Self.contrastLevels.min { abs($0.x - target) < abs($1.x - target) }?.gray ?? 0
-            current = EStimulus(target: target, heightPx: h, gray: gray, direction: direction, shownAt: .now,
-                                atHardLimit: atHard, atEasyLimit: atEasy)
+            current = EStimulus(target: target, heightPx: h, gray: gray, direction: direction, shownAt: .now)
         }
     }
 
@@ -207,7 +183,7 @@ final class ETestEngine {
     /// Gesto "non vedo" (tocco con due dita): contato come risposta sbagliata.
     func respondNotSeen() {
         guard current != nil, !paused, !finished else { return }
-        Voice.shared.say("Ok, passiamo alla prossima.")
+        Voice.shared.say("Okay, let's move to the next one.")
         record(answer: nil)
     }
 
@@ -226,21 +202,12 @@ final class ETestEngine {
         let correct = answer == stim.direction
         quest.update(stimulus: actual, correct: correct)
         records.append(TrialRecord(stimulus: actual, correct: correct, distanceCM: distanceMM / 10,
-                                   responseTimeMs: rt, shown: stim.direction.rawValue, answered: answer?.rawValue ?? "non-vedo",
+                                   responseTimeMs: rt, shown: stim.direction.rawValue, answered: answer?.rawValue ?? "not-seen",
                                    estimateAfter: quest.thresholdMedian, sdAfter: quest.thresholdSD))
         current = nil
         Haptics.tick()
-        // Limite dello schermo: 3 risposte giuste di fila allo stimolo più difficile → stop, oltre il limite.
-        if stim.atHardLimit { hardLimitStreak = correct ? hardLimitStreak + 1 : 0 }
-        // Stimolo più facile non visto 3 volte → stop, sotto il limite misurabile.
-        if stim.atEasyLimit, !correct { easyLimitMisses += 1 }
-        if hardLimitStreak >= 3 {
-            censor = .aboveLimit
-            finished = true
-        } else if easyLimitMisses >= 3 {
-            censor = .belowLimit
-            finished = true
-        } else if stopRule.shouldStop(quest) {
+        // Contratto (sezione 5): stop solo su (n ≥ 12 e SD < obiettivo) oppure n = 30.
+        if stopRule.shouldStop(quest) {
             finished = true
         } else {
             Task {
@@ -264,10 +231,6 @@ final class ETestEngine {
 
     /// Avanzamento 0...1 per l'indicatore: risposte date sul massimo previsto.
     var progress: Double { finished ? 1 : min(1, Double(trialCount) / Double(stopRule.maxTrials)) }
-
-    /// Stimolo più facile/difficile disegnabile adesso (per registrare i risultati censurati).
-    var hardLimitValue: Double { candidates(distanceMM: tracker.effectiveMM).min() ?? 0 }
-    var easyLimitValue: Double { candidates(distanceMM: tracker.effectiveMM).max() ?? 0 }
 
     var meanDistanceCM: Double {
         records.isEmpty ? tracker.effectiveCM : records.map(\.distanceCM).reduce(0, +) / Double(records.count)

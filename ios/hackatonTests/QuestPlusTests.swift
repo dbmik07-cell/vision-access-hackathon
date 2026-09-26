@@ -164,13 +164,13 @@ struct GeometryAndRulesTests {
         #expect(abs(b.text.fontSizeCssPx / a.text.fontSizeCssPx - pow(10, 0.1)) < 1e-9)
     }
 
-    @Test func r1UsesReadingOnlyWhenMeasuredAndReliable() {
+    @Test func r1IgnoresReadingBlockNoSpecialCaseInMVP() {
+        // Contratto R1: nessun margine di lettura nell'MVP, `reading` è solo `{source}` e non cambia R1.
         var p = profile(acuity(0.4, 0.3, 0.5), contrast(1.8, 1.7, 1.9))
-        p.reading = ReadingBlock(source: .measured, measured: true, criticalPrintSizeLogMAR: 0.6, ci95: [0.5, 0.7],
-                                 maxReadingSpeedWpm: 150, readingAcuityLogMAR: 0.3, reliability: .reliable, flags: [])
-        #expect(abs(RulesEngine.targetLogMAR(p) - 0.7) < 1e-12)
-        p.reading?.reliability = .doubtful
-        #expect(abs(RulesEngine.targetLogMAR(p) - 0.9) < 1e-12)
+        let withoutReading = RulesEngine.targetLogMAR(p)
+        p.reading = ReadingBlock(source: .measured)
+        #expect(abs(RulesEngine.targetLogMAR(p) - withoutReading) < 1e-12)
+        #expect(abs(withoutReading - 0.9) < 1e-12)
     }
 
     @Test func r3ContrastTable() {

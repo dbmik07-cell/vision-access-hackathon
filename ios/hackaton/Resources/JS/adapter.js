@@ -27,6 +27,11 @@
     pending: new Set(),
     reader: false,
     listeners: [],        // [target, evento, fn, opzioni]
+    rows: [],             // barre e gruppi di schede del sito (fixRows)
+    wrappedBefore: new Set(),
+    readerKey: null,      // tasti freccia del Reader
+    fits: [],             // regole ipo-fit-N (fitControls)
+    sizeTimer: null,      // misura della dimensione del corpo (reportBodySize)
   };
 
   const STYLE_ID = 'ipoview-style';
@@ -38,7 +43,7 @@
   const WARM_WHITE = { r: 255, g: 253, b: 247, a: 1 };  // tema chiaro: provvisorio finché Rocco non sceglie
   // Alias dei vecchi valori italiani → valori del contratto
   const THEME_ALIAS = { originale: 'original', chiaro: 'light', scuro: 'dark' };
-  const MODE_ALIAS = { normale: 'normal', paragrafo: 'paragraph', 'lettura-grande': 'large-reading' };
+  const MODE_ALIAS = { normale: 'normal', paragrafo: 'paragraph', 'lettura-grande': 'largeReading' };
   const MID_LUM = 0.179;  // luminanza in cui nero e bianco danno lo stesso contrasto
 
   const COOKIE_RE = /cookie|consent|gdpr|popup|pop-up|modal|newsletter|overlay|iubenda|onetrust|didomi|quantcast|cmp-|paywall|lightbox|backdrop|interstitial/i;
@@ -57,6 +62,18 @@
   // Elementi di testo a cui applicare dimensione e font
   const TEXT_TAGS_BASE = 'p,li,td,th,dd,dt,span,a,label,input,select,textarea,button,blockquote,figcaption,h1,h2,h3,h4,h5,h6';
   const TEXT_TAGS = 'p,li,td,th,dd,dt,span,a,label,input,select,textarea,button,blockquote,figcaption,div.ipo-t,h1,h2,h3,h4,h5,h6';
+  // Barre, menu, schede, moduli e controlli del sito: qui solo font, dimensione minima e contrasto,
+  // mai spaziature, bordi, display o larghezze (niente voci che vanno a capo o vengono tagliate)
+  const NAVISH = 'nav,header,footer,form,button,select,label,[role="navigation"],[role="banner"],[role="menubar"],[role="menu"],[role="menuitem"],[role="tablist"],[role="tab"],[role="toolbar"],[role="search"],[role="button"],[role="listbox"],[role="combobox"],[role="dialog"]';
+  // Campi e moduli, e ciò che li contiene: solo dimensione del testo e contrasto, mai dimensioni,
+  // bordi, padding, display o font (la casella di ricerca di Google resta larga come nel sito)
+  const FIELD = 'input,textarea,select,button,[role="search"],[role="combobox"],form';
+  const FIELD_ZONE = `:is(${FIELD}),:is(${FIELD}) *,:has(input,textarea,select)`;
+  // Testo di lettura (R2: spaziature, sillabazione, allineamento, riga, link sottolineati):
+  // p, li, dd, blockquote, td e div con testo, fuori da barre e moduli, con almeno 40 caratteri.
+  // Lo segna scanElements con la classe ipo-read (in CSS non si può contare il testo).
+  const READ_CAND = 'p,li,dd,blockquote,td';
+  const READ_MIN_CHARS = 40;
   // Non toccare il font delle icone (icon font)
   const NOT_ICON = ':not([class*="icon" i]):not([class^="fa"]):not([class*=" fa-"]):not([class*="material" i]):not([aria-hidden="true"])';
   const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'HEAD', 'META', 'LINK', 'svg', 'SVG', 'PATH', 'BR', 'IFRAME']);
@@ -244,7 +261,8 @@
     // R2: lunghezza della riga in caratteri (ch del font Atkinson), mai oltre lo schermo
     const N = Math.max(10, num(l.maxLineWidthCh, 60));
     const W = `min(${N}ch, 100%)`;
-    const WRAP = 'overflow-wrap:break-word!important;word-break:normal!important;hyphens:auto!important;-webkit-hyphens:auto!important;';
+    const WRAP = 'overflow-wrap:break-word!important;word-break:normal!important;';
+    const HYPHENS = 'hyphens:auto!important;-webkit-hyphens:auto!important;';
     const target = num(k.minTargetPt, 44), outline = num(k.focusOutlinePx, 3);
     const BG = cssColor(tc.bg), FG = cssColor(tc.fg);
     const out = [];
@@ -265,12 +283,19 @@
     out.push(`:where(${TEXT_TAGS}){font-size:${MIN(1)}!important;transition:font-size 150ms ease-out!important;}`);
     out.push(`h1{font-size:${MIN(1.6)}!important;}h2{font-size:${MIN(1.4)}!important;}h3{font-size:${MIN(1.2)}!important;}h4,h5,h6{font-size:${MIN(1.1)}!important;}`);
     out.push(`:is(h1,h2,h3,h4,h5,h6) :is(span,a,label,div,small,strong,em,b,i){font-size:inherit!important;}`);
-    out.push(`:is(body,${TEXT_TAGS})${NOT_ICON}{font-family:${fam}!important;}`);
-    out.push(`:is(body,${TEXT_TAGS}){line-height:${lh}!important;letter-spacing:${ls}em!important;word-spacing:${ws}em!important;}`);
-    out.push(`:is(body,p,li,dd,dt,td,th,blockquote,figcaption,div.ipo-t,h1,h2,h3,h4,h5,h6){text-align:${align}!important;}`);
-    out.push(`p,blockquote{margin-bottom:${ps}em!important;}`);
-    // Parole lunghe spezzate (mai break-all): il testo non esce mai di lato
-    out.push(`:is(body,${TEXT_TAGS}){${WRAP}}`);
+    out.push(`:is(body,${TEXT_TAGS})${NOT_ICON}:not(${FIELD_ZONE}){font-family:${fam}!important;}`);
+    // R2 e sillabazione solo sul testo di lettura (ipo-read, almeno 40 caratteri): mai su titoli,
+    // navigazione, pulsanti, campi, schede, menu, loghi o etichette brevi
+    out.push(`.ipo-read{line-height:${lh}!important;letter-spacing:${ls}em!important;word-spacing:${ws}em!important;text-align:${align}!important;${WRAP}${HYPHENS}}`);
+    out.push(`:is(${NAVISH},${FIELD},h1,h2,h3,h4,h5,h6,th){hyphens:manual!important;-webkit-hyphens:manual!important;}`);
+    out.push(`:is(p,blockquote).ipo-read{margin-bottom:${ps}em!important;}`);
+    // Testo più grande dentro interlinee fisse del sito: righe sovrapposte. Fuori dal testo di lettura
+    // interlinea "normal" (nessuna spaziatura aggiunta) e niente troncamenti a N righe con i puntini
+    out.push(`:where(${TEXT_TAGS}):not(.ipo-read):not(${FIELD_ZONE}){line-height:normal!important;}`);
+    out.push(`body :not(${FIELD_ZONE}){-webkit-line-clamp:unset!important;}`);
+    out.push(`.ipo-read{max-height:none!important;}`);
+    // Parole lunghe spezzate (mai break-all) anche fuori dal testo di lettura, ma senza sillabazione
+    out.push(`:is(body,${TEXT_TAGS}):not(${FIELD_ZONE}){overflow-wrap:break-word!important;}`);
 
     // Layout a una colonna
     if (S.reader) {
@@ -281,20 +306,20 @@
       out.push(`#ipoview-reader table{display:block!important;overflow-x:auto!important;max-width:100%!important;}`);
     } else if (l.singleColumn !== false) {
       // Una colonna (sempre quando il piano è attivo)
+      // Una colonna solo per i blocchi di contenuto (ipo-flexcol/ipo-grid li sceglie scanElements):
+      // barre di navigazione e gruppi di schede tengono display, flex e larghezze del sito
       out.push(`html,body{overflow-x:hidden!important;}`);
-      out.push(`body{display:block!important;max-width:min(calc(${N}ch + 24px), 100%)!important;margin:0 auto!important;padding:12px!important;box-sizing:border-box!important;${WRAP}}`);
-      out.push(`body *{float:none!important;max-width:100%!important;box-sizing:border-box!important;}`);
-      out.push(`body :is(p,li,dd,dt,blockquote,figcaption,h1,h2,h3,h4,h5,h6,div.ipo-t){max-width:${W}!important;}`);
-      out.push(`body *:not(img):not(svg):not(svg *):not(video):not(canvas):not(iframe):not(input):not(select):not(button):not(picture){width:auto!important;min-width:0!important;}`);
-      out.push(`.ipo-flexcol{flex-direction:column!important;flex-wrap:wrap!important;}.ipo-grid{display:block!important;}`);
+      out.push(`body *:not(:is(${NAVISH})):not(:is(${NAVISH}) *):not(${FIELD_ZONE}){max-width:100%!important;}`);
+      // Solo immagini e blocchi grandi escono dal float: le icone flottanti del sito restano al loro posto
+      out.push(`:is(img,picture,figure,video,iframe,table,aside):not(:is(${NAVISH}) *){float:none!important;}`);
+      out.push(`.ipo-read,:is(h1,h2,h3,h4,h5,h6):not(:is(${NAVISH}) *){max-width:${W}!important;}`);
+      out.push(`.ipo-flexcol{flex-direction:column!important;flex-wrap:nowrap!important;}.ipo-grid{display:block!important;}`);
+      out.push(`:is(.ipo-flexcol,.ipo-grid)>*{width:auto!important;min-width:0!important;max-width:100%!important;flex-basis:auto!important;}`);
       out.push(`img,video,picture,canvas,iframe{max-width:100%!important;height:auto!important;}`);
       out.push(`table{display:block!important;overflow-x:auto!important;}`);
       out.push(`aside,footer,[role="complementary"],[role="contentinfo"]{display:none!important;}`);
     }
     if (!S.reader && ruleMode) out.push(`${AD_SEL}{display:none!important;}`);
-
-    // Spazio in fondo: la toolbar nativa iOS copre circa 90px della webview
-    out.push(`body{padding-bottom:calc(100px + env(safe-area-inset-bottom))!important;}`);
 
     // Sblocca lo scroll bloccato dai popup
     if (l.moveEdgeElements || cl.removeCookieBanners) out.push(`html,body{overflow-y:auto!important;height:auto!important;}`);
@@ -302,7 +327,8 @@
     // R3/R4: tema
     if (tc.themed) {
       out.push(`html,body{background:${BG}!important;color:${FG}!important;}`);
-      out.push(`body *{color:${FG}!important;border-color:${tc.bgIsDark ? '#555' : '#999'};}`);
+      out.push(`body *{color:${FG}!important;}`);
+      out.push(`body *:not(${FIELD_ZONE}){border-color:${tc.bgIsDark ? '#555' : '#999'};}`);
       out.push(`a,a *{color:${tc.link}!important;}`);
     }
     const bright = num(c.imageBrightness, 1);
@@ -313,27 +339,33 @@
     if (cl.stopAnimations) out.push(`*,*::before,*::after{animation:none!important;transition-property:font-size!important;scroll-behavior:auto!important;}`);
 
     // R7: link e controlli
-    if (k.underlineLinks) out.push(`a{text-decoration:underline!important;text-underline-offset:.15em!important;}`);
-    out.push(`button,select,input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),[role="button"],nav a{min-height:${target}px!important;min-width:${target}px!important;padding:.3em .6em!important;box-sizing:border-box!important;}`);
-    out.push(`nav a{display:inline-block!important;}`);
-    out.push(`p a,li a{padding-block:.15em!important;}`);
-    out.push(`input[type="checkbox"],input[type="radio"]{width:${Math.round(target * 0.6)}px!important;height:${Math.round(target * 0.6)}px!important;}`);
-    out.push(`:focus,:focus-visible{outline:${outline}px solid ${tc.focus}!important;outline-offset:2px!important;}`);
+    // Sottolineatura sottile, sempre nel testo di lettura; titoli-link e navigazione restano come nel sito
+    if (k.underlineLinks) out.push(`.ipo-read a{text-decoration-line:underline!important;text-decoration-thickness:1.5px!important;text-underline-offset:.15em!important;text-decoration-skip-ink:auto!important;}`);
+    out.push(`.ipo-read a{padding-block:.15em!important;}`);
+    // Contorno spesso solo sull'elemento con il focus attivo: nessun bordo aggiunto a campi e pulsanti
+    out.push(`:focus-visible{outline:${outline}px solid ${tc.focus}!important;outline-offset:2px!important;}`);
 
     // Nostri controlli (Menù, paragrafo)
     const btnFont = 'clamp(20px, calc(var(--ipo-font) * 0.8), 40px)';  // solo per il pulsante Menù
+    out.push(`html.ipo-has-menu>body{position:relative!important;}`);
     out.push(`#ipoview-menu-btn{display:block!important;width:100%!important;max-width:none!important;min-height:${Math.max(64, target)}px!important;margin:0 0 12px!important;padding:8px 16px!important;font:700 ${btnFont} ${fam}!important;background:${FG}!important;color:${BG}!important;border:3px solid ${FG}!important;border-radius:12px!important;position:static!important;text-decoration:none!important;}`);
-    out.push(`#ipoview-paragraph{position:fixed!important;inset:0!important;z-index:2147483647!important;display:flex!important;flex-direction:column!important;background:${BG}!important;color:${FG}!important;margin:0!important;padding:0!important;max-width:none!important;width:auto!important;font-family:${fam}!important;}`);
-    out.push(`#ipoview-paragraph .ipo-p-text{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;padding:24px 16px!important;margin:0!important;color:${FG}!important;background:${BG}!important;font-size:var(--ipo-font)!important;line-height:${lh}!important;letter-spacing:${ls}em!important;word-spacing:${ws}em!important;text-align:left!important;-webkit-overflow-scrolling:touch;overflow-wrap:break-word!important;word-break:normal!important;hyphens:auto!important;-webkit-hyphens:auto!important;}`);
+    // Più alto del viewport di 200px per lato (con padding uguale): WebKit (iOS 26) non lo tratta come
+    // velo modale da estendere in grigio sotto le barre dell'app, e lì si vede il fondo della pagina
+    out.push(`#ipoview-paragraph{position:fixed!important;inset:-200px 0!important;padding-block:200px!important;box-sizing:border-box!important;z-index:2147483647!important;display:flex!important;flex-direction:column!important;background:${BG}!important;color:${FG}!important;margin:0!important;padding-inline:0!important;max-width:none!important;width:auto!important;font-family:${fam}!important;}`);
+    out.push(`#ipoview-paragraph .ipo-p-text{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;padding:24px 16px!important;margin:0!important;color:${FG}!important;background:${BG}!important;font-size:var(--ipo-font)!important;line-height:${lh}!important;letter-spacing:${ls}em!important;word-spacing:${ws}em!important;text-align:left!important;-webkit-overflow-scrolling:touch;overflow-wrap:break-word!important;word-break:normal!important;hyphens:manual!important;-webkit-hyphens:manual!important;}`);
+    out.push(`#ipoview-paragraph .ipo-p-text.ipo-long{${HYPHENS}}`);
     out.push(`#ipoview-paragraph .ipo-p-text.ipo-h{font-weight:700!important;font-size:calc(var(--ipo-font) * 1.3)!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-text.ipo-speaking{box-shadow:inset 0 0 0 ${outline + 2}px ${tc.focus}!important;}`);
-    // Barra in basso a dimensione fissa: non segue --ipo-font (a 85px andrebbe a capo)
-    out.push(`#ipoview-paragraph .ipo-p-bottom{flex:0 0 auto!important;background:${BG}!important;padding:8px 8px calc(env(safe-area-inset-bottom) + 90px)!important;border-top:2px solid ${FG}!important;}`);
+    // Barra in basso a dimensione fissa: non segue --ipo-font (a 85px andrebbe a capo).
+    // Lo spazio per la barra dell'app lo lasciano i margini nativi della webview (obscuredContentInsets)
+    out.push(`#ipoview-paragraph .ipo-p-bottom{flex:0 0 auto!important;background:${BG}!important;padding:8px 8px 12px!important;border-top:2px solid ${FG}!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-count{text-align:center!important;padding:4px 0 8px!important;color:${FG}!important;background:${BG}!important;font-size:24px!important;font-weight:700!important;line-height:1.2!important;letter-spacing:normal!important;word-spacing:normal!important;white-space:nowrap!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-bar{display:flex!important;gap:8px!important;background:${BG}!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-btn{flex:1 1 50%!important;min-height:72px!important;min-width:0!important;width:auto!important;padding:8px!important;margin:0!important;font-family:${fam}!important;font-size:24px!important;font-weight:700!important;line-height:1.2!important;letter-spacing:normal!important;word-spacing:normal!important;white-space:nowrap!important;background:${FG}!important;color:${BG}!important;border:none!important;border-radius:12px!important;text-decoration:none!important;overflow:hidden!important;text-overflow:clip!important;}`);
     out.push(`#ipoview-paragraph .ipo-p-btn:disabled{opacity:.35!important;}`);
-    out.push(`html.ipo-lock,html.ipo-lock body{overflow:hidden!important;}`);
+    out.push(`html.ipo-lock,html.ipo-lock body{overflow:hidden!important;background:${BG}!important;}`);
+    // Sotto il pannello (e sotto le barre dell'app) non si vede la pagina
+    out.push(`html.ipo-lock>body>:not(#ipoview-paragraph),html.ipo-lock>#ipoview-menu-btn{visibility:hidden!important;}`);
     return out.join('\n');
   }
 
@@ -356,6 +388,13 @@
     if (typeof isProbablyReaderable === 'function' && !isProbablyReaderable(document)) return false;
     const article = new Readability(document.cloneNode(true)).parse();
     if (!article || !article.content || (article.textContent || '').trim().length < 200) return false;
+    // Contenuto estratto fatto soprattutto di link (home di un giornale, elenchi di titoli): resta la pagina adattata
+    const probe = document.createElement('div'); probe.innerHTML = article.content;
+    const linkChars = Array.from(probe.querySelectorAll('a')).reduce((n, a) => n + (a.textContent || '').trim().length, 0);
+    if (linkChars > 0.5 * (probe.textContent || '').trim().length) return false;
+    // Tabelle di dati (almeno 5 righe) che la lettura perderebbe: resta la pagina adattata
+    const dataTables = (root) => Array.from(root.querySelectorAll('table')).filter((t) => t.rows.length >= 5).length;
+    if (dataTables(probe) < dataTables(document.body)) return false;
 
     const box = document.createElement('div');
     box.id = 'ipoview-reader'; box.setAttribute('data-ipoview', 'reader');
@@ -369,6 +408,11 @@
     for (const ch of Array.from(document.body.children)) if (!isOurs(ch)) hide(ch);
     document.body.insertBefore(box, document.body.firstChild);
     track(box);
+    // Il body del sito può restare fisso o spostato (blocco dello scroll, spazio per l'header nascosto):
+    // in linea, così vince anche sulle regole !important del sito
+    for (const [prop, value] of [['position', 'static'], ['top', 'auto'], ['margin', '0'], ['padding', '0'], ['height', 'auto'], ['overflow-y', 'auto']]) {
+      setStyle(document.body, prop, value);
+    }
     return true;
   }
 
@@ -407,6 +451,23 @@
   // ---------------------------------------------------------------------------
   // Scansione: barre fisse, flex/grid, sfondi del tema, div con testo
   // ---------------------------------------------------------------------------
+  // Contenitore flex/grid di contenuto (colonne con paragrafi), non una barra o un gruppo di schede
+  function isContentLayout(el, cs) {
+    if (!cs.display.includes('flex') && !cs.display.includes('grid')) return false;
+    if (el.matches(NAVISH) || el.closest(NAVISH) || el.querySelector('input,textarea,select')) return false;
+    return !!el.querySelector(':scope > * p, :scope > p, :scope > article') && (el.textContent || '').length > 200;
+  }
+  function directText(el) {
+    let t = '';
+    for (const n of el.childNodes) if (n.nodeType === 3) t += n.nodeValue;
+    return t.replace(/\s+/g, ' ').trim();
+  }
+  function isReadingText(el) {
+    if (el.tagName === 'DIV' ? !el.classList.contains('ipo-t') : !el.matches(READ_CAND)) return false;
+    if (el.closest(NAVISH) || el.querySelector('input,textarea,select,button')) return false;
+    const text = el.tagName === 'DIV' ? directText(el) : (el.textContent || '').replace(/\s+/g, ' ').trim();
+    return text.length >= READ_MIN_CHARS;
+  }
   function scanElements(root, plan) {
     if (!root) return;
     const l = plan.layout || {}, cl = plan.cleanup || {};
@@ -421,7 +482,7 @@
       let cs; try { cs = getComputedStyle(el); } catch (e) { continue; }
       if (cs.display === 'none') continue;
       if (edges && (cs.position === 'fixed' || cs.position === 'sticky')) handleEdge(el, cs);
-      if (single) {
+      if (single && isContentLayout(el, cs)) {
         if (cs.display.includes('flex') && !cs.flexDirection.startsWith('column')) addClass(el, 'ipo-flexcol');
         else if (cs.display.includes('grid')) addClass(el, 'ipo-grid');
       }
@@ -429,6 +490,7 @@
         setStyle(el, 'background-color', /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) ? tc.control : BG);
       }
       if (el.tagName === 'DIV' && hasDirectText(el)) addClass(el, 'ipo-t');
+      if (isReadingText(el)) addClass(el, 'ipo-read');
     }
   }
 
@@ -455,12 +517,125 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Barre e gruppi di schede: se con il testo più grande andrebbero a capo, restano su una
+  // riga e scorrono di lato. Le righe che il sito manda già a capo si toccano solo se sono
+  // poche schede nell'intestazione (es. "Tutti | Immagini" di Google su schermi stretti).
+  // ---------------------------------------------------------------------------
+  function rowCandidates(root) {
+    const out = [];
+    const list = root.querySelectorAll(`:is(${NAVISH}), :is(${NAVISH}) *`);
+    for (let i = 0; i < list.length && out.length < 400; i++) {
+      const el = list[i];
+      if (isOurs(el) || el.childElementCount < 2 || SKIP_TAGS.has(el.tagName)) continue;
+      const d = getComputedStyle(el).display;
+      if (d === 'none' || d.includes('grid') || d.startsWith('table')) continue;
+      out.push(el);
+    }
+    return out;
+  }
+  function isRow(el) {
+    const cs = getComputedStyle(el);
+    if (cs.display.includes('flex')) return !cs.flexDirection.startsWith('column');
+    const kids = Array.from(el.children).filter(visible);
+    return kids.length >= 2 && kids.every((k) => getComputedStyle(k).display.startsWith('inline'));
+  }
+  function isWrapped(el) {
+    const kids = Array.from(el.children).filter((k) => visible(k) && getComputedStyle(k).position !== 'absolute');
+    if (kids.length < 2) return false;
+    const first = kids[0].getBoundingClientRect();
+    return kids.some((k) => k.getBoundingClientRect().top >= first.bottom - 1);
+  }
+  function recordRows(root) {
+    S.rows = rowCandidates(root).filter(isRow);
+    S.wrappedBefore = new Set(S.rows.filter(isWrapped));
+  }
+  function fixRows() {
+    for (const el of S.rows) {
+      if (!el.isConnected || el.classList.contains('ipo-row') || el.closest(FIELD) || el.querySelector('input,textarea,select')) continue;
+      if (!visible(el) || !isWrapped(el)) continue;
+      if (S.wrappedBefore.has(el) && !(el.childElementCount <= 6 && el.closest('header,[role="banner"],[role="tablist"]'))) continue;
+      // Prima scelta: la riga tiene la dimensione del testo del sito (non è testo del corpo)
+      for (const d of el.querySelectorAll('*')) {
+        const o = d.style.getPropertyValue('--ipo-orig');
+        if (o) setStyle(d, 'font-size', o);
+      }
+      addClass(el, 'ipo-row');
+      if (!isWrapped(el)) continue;
+      // Se ancora non ci sta: una riga che scorre di lato, senza andare a capo
+      const flex = getComputedStyle(el).display.includes('flex');
+      setStyle(el, flex ? 'flex-wrap' : 'white-space', 'nowrap');
+      setStyle(el, 'overflow-x', 'auto');
+      setStyle(el, 'overflow-y', 'hidden');
+      setStyle(el, 'scrollbar-width', 'none');
+      for (const k of el.children) { setStyle(k, 'flex-shrink', '0'); setStyle(k, 'white-space', 'nowrap'); }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Controlli (campi, pulsanti, link dell'intestazione): non se ne toccano dimensioni o padding,
+  // quindi il testo resta il più grande che ci sta dentro, mai più piccolo di quello del sito
+  // ---------------------------------------------------------------------------
+  const CONTROL_SEL = 'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),textarea,select,button,[role="button"],header a,[role="banner"] a';
+  function textFits(el, cs) {
+    const fs = parseFloat(cs.fontSize);
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) {
+      // Una riga di testo dentro l'altezza del campo (e del contenitore, se il sito lo ritaglia)
+      let h = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      const box = el.parentElement;
+      if (box && getComputedStyle(box).overflow !== 'visible') h = Math.min(h, box.clientHeight);
+      return fs * 1.15 <= h + 0.5;
+    }
+    if (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1) return false;
+    // Nell'intestazione il controllo deve restare dentro la barra (non coprire il resto della pagina)
+    const bar = el.closest('header,[role="banner"]');
+    if (!bar) return true;
+    const r = el.getBoundingClientRect(), b = bar.getBoundingClientRect();
+    return r.top >= b.top - 1 && r.bottom <= b.bottom + 1;
+  }
+  // La dimensione trovata va in una regola del nostro foglio (classe ipo-fit-N): alcuni siti
+  // riscrivono l'attributo style dei loro campi (Google con la casella di ricerca)
+  function fitControls() {
+    if (!document.body) return;
+    let st = document.getElementById('ipoview-fit');
+    const rules = (extra) => { st.textContent = S.fits.join('\n') + (extra ? '\n' + extra : ''); };
+    const list = document.body.querySelectorAll(CONTROL_SEL);
+    for (let i = 0; i < list.length && i < 400; i++) {
+      const el = list[i];
+      if (isOurs(el) || !visible(el) || String(el.className || '').includes('ipo-fit-')) continue;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'inline' || !el.clientHeight || textFits(el, cs)) continue;
+      // Senza la dimensione del sito registrata non c'è un limite inferiore: si lascia com'è
+      const orig = parseFloat(el.style.getPropertyValue('--ipo-orig')) || 0;
+      if (!orig) continue;
+      if (!st) {
+        st = document.createElement('style'); st.id = 'ipoview-fit'; st.setAttribute('data-ipoview', 'style');
+        (document.head || document.documentElement).appendChild(st);
+        track(st);
+      }
+      // Prova con una regola temporanea (vale anche per i figli, es. lo span dentro il pulsante)
+      el.classList.add('ipo-fitting');
+      let fs = parseFloat(cs.fontSize), ok = false;
+      for (let n = 0; n < 12 && fs * 0.9 > orig && !ok; n++) {
+        fs *= 0.9;
+        rules(`.ipo-fitting,.ipo-fitting *{font-size:${fs}px!important;transition:none!important;}`);
+        ok = textFits(el, getComputedStyle(el));
+      }
+      if (!ok) fs = orig;
+      el.classList.remove('ipo-fitting');
+      const cls = 'ipo-fit-' + S.fits.length;
+      S.fits.push(`.${cls},.${cls} *{font-size:${fs}px!important;transition:none!important;}`);
+      addClass(el, cls);
+      rules();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // R3: passata di contrasto
   // ---------------------------------------------------------------------------
   function contrastPass(root, plan) {
     if (!root) return;
     const c = plan.color || {};
-    const target = num(c.minTextContrast, 4.5), uiTarget = num(c.minUIContrast, 3);
+    const target = num(c.minTextContrast, 4.5);
     const preserveHue = c.preserveHue !== false;
     const tc = themeColors(plan);
     const cache = new Map();
@@ -489,29 +664,17 @@
     for (const el of collect(root, 20000)) {
       if (count >= 3000) break;
       if (el.nodeType !== 1 || SKIP_TAGS.has(el.tagName) || isUI(el)) continue;
-      const isControl = /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(el.tagName);
-      const text = hasDirectText(el);
-      if (!text && !isControl) continue;
-      if (!visible(el)) continue;
+      // Solo il colore del testo: nessun bordo aggiunto ai controlli del sito
+      if (!hasDirectText(el) || !visible(el)) continue;
       count++;
       const cs = getComputedStyle(el);
       if (cs.visibility === 'hidden') continue;
 
-      // Bordi dei controlli: almeno minUIContrast rispetto allo sfondo esterno
-      if (isControl && !/^(hidden|checkbox|radio|range|color|image)$/.test(el.type || '')) {
-        const outer = effBg(el.parentElement).c;
-        const bw = parseFloat(cs.borderTopWidth) || 0;
-        const bc = blend(parseColor(cs.borderTopColor), outer);
-        if (bw < 1 || cs.borderTopStyle === 'none' || ratio(bc, outer) < uiTarget) {
-          const nc = adjustColor(bw >= 1 ? bc : blend(parseColor(cs.color), outer), outer, uiTarget, preserveHue) ||
-            (lum(outer) > MID_LUM ? BLACK : WHITE);
-          setStyle(el, 'border', `2px solid ${cssColor(nc)}`);
-        }
-      }
-      if (!text) continue;
-
       let info = effBg(el), bg = info.c;
       const fgRaw = parseColor(cs.color);
+      // Fuori dal testo di lettura (campi, pulsanti, barre) si cambia solo il colore del testo, mai sfondo o padding
+      const field = el.matches(FIELD_ZONE) || !el.matches('.ipo-read, .ipo-read *');
+      if (info.image && field) continue;
       if (info.image) {
         // Testo sopra un'immagine: fondo pieno dietro al testo
         let nb;
@@ -526,6 +689,7 @@
       const fg = blend(fgRaw, bg);
       if (ratio(fg, bg) >= target) continue;
       let nc = adjustColor(fg, bg, target, preserveHue);
+      if (!nc && field) nc = ratio(BLACK, bg) >= ratio(WHITE, bg) ? BLACK : WHITE;
       if (!nc) {
         // Il solo testo non basta: cambia anche lo sfondo
         const nb = lum(bg) > MID_LUM ? WHITE : DARK;
@@ -562,20 +726,23 @@
     if (!navs.length) return;
     navs.forEach(hide);
     const btn = document.createElement('button');
-    btn.type = 'button'; btn.id = 'ipoview-menu-btn'; btn.textContent = 'Menù';
+    btn.type = 'button'; btn.id = 'ipoview-menu-btn'; btn.textContent = 'Menu';
     btn.setAttribute('data-ipoview', 'ui'); btn.setAttribute('aria-expanded', 'false');
     btn.addEventListener('click', () => {
       const open = btn.getAttribute('aria-expanded') !== 'true';
       btn.setAttribute('aria-expanded', String(open));
       navs.forEach((n) => n.classList.toggle('ipo-hide', !open));
+      if (open) step('rows', fixRows);
     });
-    document.body.insertBefore(btn, document.body.firstChild);
+    // Prima del body (con body relativo): gli elementi assoluti del sito a top:0 non lo coprono
+    document.documentElement.insertBefore(btn, document.body);
+    addClass(document.documentElement, 'ipo-has-menu');
     track(btn);
   }
 
   // ---------------------------------------------------------------------------
   // Estensioni post-MVP: "paragraph" (R5, un paragrafo per schermata) e
-  // "large-reading" (R9, un paragrafo alla volta, tocco = ascolto). Nell'MVP mode = "normal".
+  // "largeReading" (R9, un paragrafo alla volta, tocco = ascolto). Nell'MVP mode = "normal".
   // ---------------------------------------------------------------------------
   const BLOCK_SEL = 'h1,h2,h3,h4,p,li,dd,blockquote,tr';
   const INNER_BLOCK_SEL = 'h1,h2,h3,h4,p,li,dd,blockquote,table';
@@ -622,25 +789,25 @@
     return out;
   }
 
+  // Si apre solo dal pulsante "Reader" dell'app (IpoView.setReader), mai da solo: layout.mode resta "normal".
   function buildParagraphMode(plan) {
-    const mode = plan.layout && plan.layout.mode;
-    if ((mode !== 'paragraph' && mode !== 'large-reading') || !document.body) return;
+    if (!document.body || document.getElementById('ipoview-paragraph')) return true;
     const items = collectParagraphs();
     // Meno di 2 blocchi: niente overlay, resta la pagina adattata normale
-    if (items.length < 2) { log('modalità paragrafo: blocchi insufficienti (' + items.length + '), layout normale'); return; }
-    const speak = mode === 'large-reading' || !!(plan.speech && plan.speech.tapToSpeak);
+    if (items.length < 2) { log('Reader: blocchi insufficienti (' + items.length + ')'); return false; }
+    const speak = !!(plan.speech && plan.speech.tapToSpeak);
     // rateWpm può essere null: in quel caso si manda null e Swift sceglie il default
     const rw = plan.speech ? plan.speech.rateWpm : null;
     const rate = rw != null && Number.isFinite(Number(rw)) && Number(rw) > 0 ? Number(rw) : null;
 
     const ov = document.createElement('div');
     ov.id = 'ipoview-paragraph'; ov.setAttribute('data-ipoview', 'ui');
-    ov.setAttribute('lang', document.documentElement.lang || 'it'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'Lettura un paragrafo alla volta');
+    ov.setAttribute('lang', document.documentElement.lang || 'en'); ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'Reader, one paragraph at a time');
     const text = document.createElement('div'); text.className = 'ipo-p-text'; text.setAttribute('aria-live', 'polite');
     const counter = document.createElement('div'); counter.className = 'ipo-p-count';
     const bar = document.createElement('div'); bar.className = 'ipo-p-bar';
-    const prev = document.createElement('button'); prev.type = 'button'; prev.className = 'ipo-p-btn'; prev.textContent = '◀ Indietro';
-    const next = document.createElement('button'); next.type = 'button'; next.className = 'ipo-p-btn'; next.textContent = 'Avanti ▶';
+    const prev = document.createElement('button'); prev.type = 'button'; prev.className = 'ipo-p-btn'; prev.textContent = '◀ Previous';
+    const next = document.createElement('button'); next.type = 'button'; next.className = 'ipo-p-btn'; next.textContent = 'Next ▶';
     bar.append(prev, next);
     const bottom = document.createElement('div'); bottom.className = 'ipo-p-bottom';
     bottom.append(counter, bar); ov.append(text, bottom);
@@ -650,6 +817,7 @@
       i = Math.max(0, Math.min(items.length - 1, n));
       text.textContent = items[i].text;
       text.classList.toggle('ipo-h', items[i].isH);
+      text.classList.toggle('ipo-long', !items[i].isH && items[i].text.length >= READ_MIN_CHARS);
       text.classList.remove('ipo-speaking');
       text.scrollTop = 0;
       counter.textContent = `${i + 1} / ${items.length}`;
@@ -665,11 +833,12 @@
       const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) { swiped = true; show(dx < 0 ? i + 1 : i - 1); }
     }, { passive: true });
-    // Tasti freccia (utile per i test su desktop)
-    listen(document, 'keydown', (e) => {
+    // Tasti freccia (utile per i test su desktop); tolto quando il Reader si chiude
+    S.readerKey = (e) => {
       if (e.key === 'ArrowRight') show(i + 1);
       else if (e.key === 'ArrowLeft') show(i - 1);
-    });
+    };
+    document.addEventListener('keydown', S.readerKey);
     // Tocco sul paragrafo = ascolto
     if (speak) {
       text.addEventListener('click', () => {
@@ -683,6 +852,15 @@
     track(ov);
     addClass(document.documentElement, 'ipo-lock');
     show(0);
+    return true;
+  }
+
+  function closeReader() {
+    const ov = document.getElementById('ipoview-paragraph');
+    if (ov) { ov.remove(); S.added = S.added.filter((n) => n !== ov); }
+    document.documentElement.classList.remove('ipo-lock');
+    S.classes = S.classes.filter(([el, cls]) => !(el === document.documentElement && cls === 'ipo-lock'));
+    if (S.readerKey) { document.removeEventListener('keydown', S.readerKey); S.readerKey = null; }
   }
 
   // ---------------------------------------------------------------------------
@@ -714,6 +892,7 @@
         contrastPass(n, plan);
       });
     }
+    step('rows', fixRows);
   }
 
   // ---------------------------------------------------------------------------
@@ -731,7 +910,7 @@
     const th = plan.color.theme;
     plan.color.theme = THEME_ALIAS[th] || (th === 'light' || th === 'dark' ? th : 'original');
     const md = plan.layout.mode;
-    plan.layout.mode = MODE_ALIAS[md] || (md === 'paragraph' || md === 'large-reading' ? md : 'normal');
+    plan.layout.mode = MODE_ALIAS[md] || (md === 'paragraph' || md === 'largeReading' ? md : 'normal');
     // screen.brightness è gestito in Swift: qui si ignora
     // Dimensione impostata prima di apply: ha la precedenza (poi si consuma)
     if (S.pendingFontPx != null) { plan.text.fontSizeCssPx = S.pendingFontPx; S.pendingFontPx = null; }
@@ -742,10 +921,11 @@
     // Viewport 1:1 PRIMA di tutto (ADR 0003): 1 CSS px = 1 punto iOS
     step('viewport', forceViewport);
     // hyphens:auto richiede una lingua: se manca, italiano
-    step('lang', () => { if (!document.documentElement.getAttribute('lang')) setAttr(document.documentElement, 'lang', 'it'); });
+    step('lang', () => { if (!document.documentElement.getAttribute('lang')) setAttr(document.documentElement, 'lang', 'en'); });
     S.reader = !!step('readability', () => tryReader(plan));
     const ruleMode = !S.reader;
     if (body) step('origSizes', () => recordOrigSizes(body));
+    if (body && ruleMode) step('recordRows', () => recordRows(body));
     step('style', () => injectStyle(buildCSS(plan, ruleMode)));
     if (body) {
       if (cl.stopAnimations) step('stopMedia', () => stopMedia(body));
@@ -757,10 +937,13 @@
       const root = S.reader ? document.getElementById('ipoview-reader') : body;
       step('scan', () => scanElements(root, plan));
       step('contrast', () => contrastPass(root, plan));
-      step('paragraph', () => buildParagraphMode(plan));
+      step('rows', fixRows);
+      // Il font Atkinson arriva un attimo dopo e allarga il testo: si ricontrolla
+      if (document.fonts) listen(document.fonts, 'loadingdone', () => { if (S.applied) step('rows', fixRows); });
       step('observer', startObserver);
     }
     post({ type: 'applied', readerable: S.reader });
+    scheduleBodySize();
   }
 
   function setFontSizePx(px) {
@@ -769,6 +952,53 @@
     if (!S.applied) { S.pendingFontPx = v; return; }
     // Solo la variabile CSS: nessuna nuova scansione
     step('setFontSizePx', () => setStyle(document.documentElement, '--ipo-font', v + 'px', ''));
+    step('rows', fixRows);
+    scheduleBodySize();
+  }
+
+  function setReader(on) {
+    if (!S.applied) return;
+    if (on) {
+      const ok = step('reader', () => buildParagraphMode(S.plan));
+      if (!ok) post({ type: 'readerUnavailable' });
+    } else step('reader', closeReader);
+    scheduleBodySize();
+  }
+
+  // Dimensione effettiva del testo del corpo dopo l'adattamento, per l'indicatore dell'app:
+  // la dimensione con più caratteri nel testo di lettura (o quella del body se non ce n'è).
+  // original = il sito la usava già (il minimo del piano non ha cambiato niente).
+  function reportBodySize() {
+    S.sizeTimer = null;
+    if (!S.applied) return;
+    // Reader aperto: il corpo usa --ipo-font (i titoli 1,3 volte)
+    if (document.getElementById('ipoview-paragraph')) {
+      post({ type: 'bodyText', px: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ipo-font')), original: false });
+      return;
+    }
+    const sizes = new Map();
+    for (const el of document.querySelectorAll('.ipo-read')) {
+      if (!visible(el)) continue;
+      const px = Math.round(parseFloat(getComputedStyle(el).fontSize) * 10) / 10;
+      const orig = parseFloat(el.style.getPropertyValue('--ipo-orig'));
+      const e = sizes.get(px) || { px, chars: 0, original: true };
+      e.chars += (el.textContent || '').length;
+      if (!(orig >= px - 0.5)) e.original = false;
+      sizes.set(px, e);
+    }
+    let best = null;
+    for (const e of sizes.values()) if (!best || e.chars > best.chars) best = e;
+    if (!best && document.body) {
+      const px = parseFloat(getComputedStyle(document.body).fontSize);
+      const orig = parseFloat(document.body.style.getPropertyValue('--ipo-orig'));
+      best = { px, original: orig >= px - 0.5 };
+    }
+    if (best) post({ type: 'bodyText', px: best.px, original: best.original });
+  }
+  // Dopo la transizione di 150 ms della dimensione
+  function scheduleBodySize() {
+    clearTimeout(S.sizeTimer);
+    S.sizeTimer = setTimeout(() => { step('rows', fixRows); step('controls', fitControls); step('bodySize', reportBodySize); }, 250);
   }
 
   function reset() {
@@ -799,8 +1029,14 @@
         S.viewport = null;
       }
     });
-    S.applied = false; S.plan = null; S.reader = false;
+    if (S.readerKey) { document.removeEventListener('keydown', S.readerKey); S.readerKey = null; }
+    clearTimeout(S.sizeTimer); S.sizeTimer = null;
+    S.applied = false; S.plan = null; S.reader = false; S.rows = []; S.wrappedBefore = new Set(); S.fits = [];
   }
 
-  window.IpoView = { apply, setFontSizePx, reset };
+  // Pagina ripresa dalla cache avanti/indietro: lo stato qui sopra è quello di quando la si è lasciata.
+  // Swift decide (piano attuale o pagina originale) e richiama apply, che fa reset prima: una volta sola.
+  window.addEventListener('pageshow', (e) => { if (e.persisted) post({ type: 'pageshow' }); });
+
+  window.IpoView = { apply, setFontSizePx, setReader, reset };
 })();

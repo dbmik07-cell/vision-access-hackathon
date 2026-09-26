@@ -25,7 +25,7 @@ struct WelcomeView: View {
                     Text("Avvia test").font(.ipo(.largeTitle, bold: true))
                     Text("circa \(app.demoMode ? "3" : "6") minuti").font(.ipo(.title3))
                 }
-                .foregroundStyle(look.scheme == .dark ? Color.black : Color.white)
+                .foregroundStyle(look.onAccent)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .buttonStyle(.glassProminent)

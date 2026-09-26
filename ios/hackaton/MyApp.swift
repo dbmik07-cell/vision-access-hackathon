@@ -33,6 +33,11 @@ struct RootView: View {
         .dynamicTypeSize(look.typeSize)
         .preferredColorScheme(look.scheme)
         .animation(.easeInOut(duration: 0.3), value: app.route)
+        .onAppear {
+            // Contratto, sezione 14: verifica di nativeScale (cambia con lo Zoom schermo).
+            let screen = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen
+            print("[IpoView] modello \(DeviceDisplay.modelIdentifier) · nativeScale \(screen?.nativeScale ?? 0) · scale \(screen?.scale ?? 0) · schermo \(screen?.bounds.size ?? .zero) pt · pixel \(screen?.nativeBounds.size ?? .zero)")
+        }
         .sheet(isPresented: $app.showSettings) {
             SettingsView().environment(app)
                 .dynamicTypeSize(look.typeSize)

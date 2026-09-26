@@ -19,16 +19,10 @@ nonisolated enum RulesEngine {
 
     // MARK: R1 — Dimensione del testo
 
-    /// s_target: base = dimensione critica di stampa + 0,1 se la lettura è misurata e affidabile,
-    /// altrimenti acuità prudente + 0,4 (la riserva è già il margine). Più la correzione manuale.
+    /// s_target: acuità prudente + 0,4 (riserva, già il margine nell'MVP). Più la correzione manuale.
+    /// Il margine +0,1 sulla dimensione critica di stampa misurata è post-MVP (contratto R1): non si applica.
     static func targetLogMAR(_ p: VisualProfile) -> Double {
-        let base: Double
-        if let r = p.reading, r.measured, r.source == .measured, r.reliability == .reliable {
-            base = r.criticalPrintSizeLogMAR + P.r1ReadingMarginLogMAR
-        } else {
-            base = prudentAcuity(p.acuity) + P.r1AcuityReserveLogMAR
-        }
-        return base + p.textSizeOffset
+        prudentAcuity(p.acuity) + P.r1AcuityReserveLogMAR + p.textSizeOffset
     }
 
     /// θ = 5′·10^s (altezza della x, MNREAD); h_x = 400 mm · θ_rad; font_mm = h_x / r_x.
@@ -125,14 +119,13 @@ nonisolated enum RulesEngine {
 
     static func explanations(profile p: VisualProfile, plan: AdaptationPlan, distanceMm: Double) -> [String] {
         var notes: [String] = []
-        let base = (p.reading?.measured == true && p.reading?.reliability == .reliable)
-            ? "dimensione critica di stampa + 0,1" : "acuità prudente \(prudentAcuity(p.acuity).it()) + riserva 0,4"
-        notes.append("R1: testo di almeno \(Int(fontSizeAtDistance(plan: plan, distanceMm: distanceMm).rounded())) pt a \(Int(distanceMm / 10)) cm (\(base)), cresce se allontani il telefono")
-        notes.append("R2: una colonna, righe di al massimo \(Int(plan.layout.maxLineWidthCh.rounded())) caratteri, interlinea \(plan.text.lineHeight.it(1))")
-        notes.append("R3: contrasto del testo almeno \(plan.color.minTextContrast.it(1)):1")
-        notes.append("R4: tema \(plan.color.theme == "original" ? "del sito" : (plan.color.theme == "dark" ? "scuro" : "chiaro"))")
-        if plan.layout.moveEdgeElements { notes.append("R5: niente elementi importanti ai bordi") }
-        notes.append("R6–R8: niente animazioni, popup e pubblicità; link sottolineati e pulsanti di almeno \(Int(plan.controls.minTargetPt)) punti")
+        let base = "cautious acuity \(prudentAcuity(p.acuity).it()) + 0.4 margin"
+        notes.append("R1: text of at least \(Int(fontSizeAtDistance(plan: plan, distanceMm: distanceMm).rounded())) pt at \(Int(distanceMm / 10)) cm (\(base)), grows if you move the phone farther away")
+        notes.append("R2: one column, lines of at most \(Int(plan.layout.maxLineWidthCh.rounded())) characters, line height \(plan.text.lineHeight.it(1))")
+        notes.append("R3: text contrast at least \(plan.color.minTextContrast.it(1)):1")
+        notes.append("R4: theme \(plan.color.theme == "original" ? "from the site" : (plan.color.theme == "dark" ? "dark" : "light"))")
+        if plan.layout.moveEdgeElements { notes.append("R5: no important elements at the edges") }
+        notes.append("R6–R8: no animations, pop-ups or ads; underlined links and buttons of at least \(Int(plan.controls.minTargetPt)) points")
         return notes
     }
 }

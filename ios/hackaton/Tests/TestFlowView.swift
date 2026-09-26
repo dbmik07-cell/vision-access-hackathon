@@ -8,29 +8,29 @@ enum TestStep: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .acuity: "Acuità"
-        case .contrast: "Contrasto"
-        case .reading: "Lettura"
-        case .amsler: "Griglia di Amsler"
-        case .field: "Campo visivo"
-        case .light: "Luce"
+        case .acuity: "Acuity"
+        case .contrast: "Contrast"
+        case .reading: "Reading"
+        case .amsler: "Amsler grid"
+        case .field: "Visual field"
+        case .light: "Light"
         }
     }
 
     var instructions: String {
         switch self {
         case .acuity:
-            "Vedrai una E. Scorri il dito verso il lato in cui la E è aperta. La lettera diventa sempre più piccola."
+            "You'll see an E. Slide your finger toward the side the E is open on. The letter gets smaller and smaller."
         case .contrast:
-            "Stessa E, stesso gesto. Ora la lettera resta grande ma diventa sempre più chiara."
+            "Same E, same gesture. Now the letter stays big but gets lighter and lighter."
         case .reading:
-            "Leggerai ad alta voce alcune frasi brevi, sempre più piccole, il più veloce possibile. Il microfono serve solo a capire quando hai finito."
+            "You'll read a few short sentences out loud, getting smaller each time, as fast as you can. The microphone is only used to tell when you've finished."
         case .amsler:
-            "Un occhio alla volta, l'altro coperto. Guarda il punto al centro della griglia e passa il dito dove le linee sono storte, poi dove mancano o sono sfocate."
+            "One eye at a time, the other covered. Look at the dot at the center of the grid and slide your finger where the lines look crooked, then where they're missing or blurry."
         case .light:
-            "Vedrai lo stesso testo in due versioni. Tocca quella che leggi meglio. Sono sei confronti."
+            "You'll see the same text in two versions. Tap the one you read better. There are six comparisons."
         case .field:
-            "Un occhio alla volta. Guarderai un punto nero in un angolo dello schermo e toccherai lo schermo ogni volta che vedi un piccolo lampo di luce, anche debole."
+            "One eye at a time. You'll look at a black dot in a corner of the screen and tap the screen every time you see a small flash of light, even a faint one."
         }
     }
 
@@ -38,7 +38,7 @@ enum TestStep: String, CaseIterable, Identifiable {
     var guessHint: String? {
         switch self {
         case .acuity, .contrast:
-            "Se non sei sicuro, prova a indovinare: fa parte del test. Se non vedi proprio niente, tocca lo schermo con due dita."
+            "If you're not sure, try to guess: that's part of the test. If you can't see anything at all, tap the screen with two fingers."
         default: nil
         }
     }
@@ -66,7 +66,7 @@ final class TestSession {
     // Blocchi raccolti durante i test; il profilo si costruisce alla fine.
     var acuity: AcuityBlock?
     var contrast: ContrastBlock?
-    var reading: ReadingBlock?
+    var reading: ReadingMeasurement?
     var amsler: AmslerBlock?
     var visualField: VisualFieldBlock?
     var light: LightBlock?
@@ -90,7 +90,8 @@ final class TestSession {
             let base = PresetProfiles.baseline(device: ProfileBuilder.device)
             var p = VisualProfile(device: ProfileBuilder.device, acuity: acuity ?? base.acuity,
                                   contrast: contrast ?? base.contrast)
-            p.reading = reading; p.amsler = amsler; p.visualField = visualField; p.light = light
+            p.reading = reading.map { ReadingBlock(source: $0.source) }
+            p.amsler = amsler; p.visualField = visualField; p.light = light
             ProfileBuilder.finalize(&p)
             profile = p
             stage = .done
@@ -128,12 +129,12 @@ struct TestFlowView: View {
             // Contratto, sezione 7: modello assente dalla tabella → nessun ppi stimato, il test non parte.
             VStack(spacing: 24) {
                 Image(systemName: "iphone.slash").font(.system(size: 80))
-                Text("Questo modello di iPhone (\(DeviceDisplay.modelIdentifier)) non è ancora nella tabella degli schermi: senza la densità esatta il test non sarebbe corretto.")
+                Text("This iPhone model (\(DeviceDisplay.modelIdentifier)) isn't in the screen table yet: without the exact pixel density the test wouldn't be accurate.")
                     .font(.ipo(.title2, bold: true)).multilineTextAlignment(.center)
-                BigButton(title: "Torna indietro", systemImage: "chevron.backward") { quit() }
+                BigButton(title: "Go back", systemImage: "chevron.backward") { quit() }
             }
             .padding(24).foregroundStyle(.black).background(Color.white.ignoresSafeArea())
-            .onAppear { Voice.shared.say("Questo modello di iPhone non è ancora supportato dal test.") }
+            .onAppear { Voice.shared.say("This iPhone model isn't supported by the test yet.") }
         } else {
             stageContent(s)
         }
@@ -150,9 +151,9 @@ struct TestFlowView: View {
             running(s).id(s.index)
         case .done:
             ProgressView().onAppear {
-                Voice.shared.say("Test finito. Ecco come vedi.")
+                Voice.shared.say("Test finished. Here's how you see.")
                 Haptics.success()
-                if let p = s.profile { app.finishTest(with: p, diagnostics: s.diagnostics) }
+                if let p = s.profile { app.finishTest(with: p, diagnostics: s.diagnostics, reading: s.reading) }
             }
         }
     }
@@ -163,17 +164,15 @@ struct TestFlowView: View {
         case .acuity:
             ETestView(engine: ETestEngine(kind: .acuity, demo: s.demo), onFinish: { engine in
                 s.acuity = ProfileBuilder.acuityBlock(engine)
-                s.diagnostics += Diagnostics.assess(quest: engine.quest, records: engine.records).map { "Acuità: \($0)" }
-                if engine.censor == .aboveLimit { s.diagnostics.append("Acuità: vista nella norma, oltre il limite misurabile dallo schermo") }
-                if engine.censor == .belowLimit { s.diagnostics.append("Acuità sotto il limite misurabile: adattamento al massimo") }
+                s.diagnostics += Diagnostics.assess(quest: engine.quest, records: engine.records).map { "Acuity: \($0)" }
+                if s.acuity?.censoredAtDisplayLimit == true { s.diagnostics.append("Acuity: normal vision, beyond the limit the screen can measure") }
                 s.advance()
             }, onQuit: quit)
         case .contrast:
             let letter = ProfileBuilder.contrastLetterArcmin(acuity: s.acuity)
             ETestView(engine: ETestEngine(kind: .contrast(letterArcmin: letter.arcmin), demo: s.demo), onFinish: { engine in
                 s.contrast = ProfileBuilder.contrastBlock(engine, letterCapped: letter.capped)
-                if engine.censor == .aboveLimit { s.diagnostics.append("Contrasto nella norma, oltre il limite misurabile dallo schermo") }
-                if engine.censor == .belowLimit { s.diagnostics.append("Contrasto sotto il limite misurabile: adattamento al massimo") }
+                if s.contrast?.censoredAtCeiling == true { s.diagnostics.append("Contrast: normal, beyond the limit the screen can measure") }
                 s.advance()
             }, onQuit: quit)
         case .reading:
@@ -220,25 +219,25 @@ struct PrepView: View {
         VStack(spacing: 28) {
             Spacer()
             Image(systemName: "iphone.gen3").font(.system(size: 90))
-            Text("Tieni il telefono come quando leggi, con i tuoi soliti occhiali.")
+            Text("Hold the phone the way you normally do when reading, with your usual glasses.")
                 .font(.ipo(.title, bold: true)).multilineTextAlignment(.center)
             DistanceBadge().scaleEffect(1.4)
             Text(status.message).font(.ipo(.title2)).multilineTextAlignment(.center)
             if let light = tracker.ambientIntensity {
                 if light < 250 {
-                    Label("La stanza è un po' buia: accendi una luce se puoi.", systemImage: "moon.fill").font(.ipo(.headline))
+                    Label("The room is a bit dark: turn on a light if you can.", systemImage: "moon.fill").font(.ipo(.headline))
                 } else if light > 2500 {
-                    Label("C'è molta luce: evita i riflessi sullo schermo.", systemImage: "sun.max.fill").font(.ipo(.headline))
+                    Label("There's a lot of light: avoid glare on the screen.", systemImage: "sun.max.fill").font(.ipo(.headline))
                 }
             }
             Spacer()
-            BigButton(title: "Continua", systemImage: "arrow.right") { finish() }
+            BigButton(title: "Continue", systemImage: "arrow.right") { finish() }
         }
         .padding(24)
         .foregroundStyle(.black)
         .background(Color.white.ignoresSafeArea())
         .onAppear {
-            Voice.shared.say("Tieni il telefono come quando leggi, con i tuoi soliti occhiali. La fotocamera frontale serve solo a misurare la distanza del tuo viso.")
+            Voice.shared.say("Hold the phone the way you normally do when reading, with your usual glasses. The front camera is only used to measure the distance to your face.")
         }
         .onChange(of: status) { _, new in
             if new == .ok { okSince = .now } else { okSince = nil; Voice.shared.say(new.message, interrupt: false) }
@@ -259,7 +258,7 @@ struct PrepView: View {
     private func finish() {
         guard !done else { return }
         done = true
-        Voice.shared.say("Perfetto.")
+        Voice.shared.say("Perfect.")
         onReady()
     }
 }
@@ -273,7 +272,7 @@ struct IntroView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Text("Test \(number) di \(total)").font(.ipo(.title2, bold: true)).foregroundStyle(Color(white: 0.3))
+            Text("Test \(number) of \(total)").font(.ipo(.title2, bold: true)).foregroundStyle(Color(white: 0.3))
             Image(systemName: step.icon).font(.system(size: 72, weight: .semibold))
             Text(step.title).font(.ipo(.largeTitle, bold: true))
             Text(step.instructions).font(.ipo(.title3)).multilineTextAlignment(.center)
@@ -281,14 +280,14 @@ struct IntroView: View {
                 Label(hint, systemImage: "hand.tap").font(.ipo(.title3, bold: true)).multilineTextAlignment(.leading)
             }
             Spacer()
-            BigButton(title: "Inizia", systemImage: "play.fill", action: onStart)
+            BigButton(title: "Start", systemImage: "play.fill", action: onStart)
         }
         .padding(24)
         .padding(.top, 30)
         .foregroundStyle(.black)
         .background(Color.white.ignoresSafeArea())
         .onAppear {
-            Voice.shared.say("Test \(number) di \(total): \(step.title). \(step.instructions) \(step.guessHint ?? "") Tocca Inizia quando sei pronto.")
+            Voice.shared.say("Test \(number) of \(total): \(step.title). \(step.instructions) \(step.guessHint ?? "") Tap Start when you're ready.")
         }
     }
 }

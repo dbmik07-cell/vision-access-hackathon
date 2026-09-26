@@ -8,9 +8,9 @@ enum FieldPreset: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .nessuno: "Nessuno (usa i test)"
-        case .tunnel: "Visione a tunnel (5°)"
-        case .centrale: "Macchia centrale"
+        case .nessuno: "None (use tests)"
+        case .tunnel: "Tunnel vision (5°)"
+        case .centrale: "Central scotoma"
         }
     }
 }
@@ -30,6 +30,11 @@ final class AppModel {
         didSet { ProfileStore.save(profile) }
     }
 
+    /// Test di lettura (post-MVP, fuori dal contratto): dati dell'app, non del `VisualProfile` esportato.
+    var readingMeasurement: ReadingMeasurement? {
+        didSet { ReadingStore.save(readingMeasurement) }
+    }
+
     var demoMode: Bool {
         didSet { UserDefaults.standard.set(demoMode, forKey: "demoMode") }
     }
@@ -38,9 +43,14 @@ final class AppModel {
         didSet { UserDefaults.standard.set(fieldPreset.rawValue, forKey: "fieldPreset") }
     }
 
-    /// Estensioni post-MVP sopra il piano del contratto: un paragrafo alla volta (R5) e lettura grande (R9).
+    /// Estensione post-MVP sopra il piano del contratto: nel Reader si tocca il paragrafo per ascoltarlo (R9).
     var postMVPExtensions: Bool {
         didSet { UserDefaults.standard.set(postMVPExtensions, forKey: "postMVPExtensions") }
+    }
+
+    /// Indicatore della distanza nella barra del browser (sempre visibile in modalità demo).
+    var showDistance: Bool {
+        didSet { UserDefaults.standard.set(showDistance, forKey: "showDistance") }
     }
 
     /// Controlli di affidabilità avanzata dell'ultimo test (fuori dal profilo del contratto).
@@ -50,10 +60,12 @@ final class AppModel {
 
     init() {
         profile = ProfileStore.load()
+        readingMeasurement = ReadingStore.load()
         demoMode = UserDefaults.standard.bool(forKey: "demoMode")
         fieldPreset = FieldPreset(rawValue: UserDefaults.standard.string(forKey: "fieldPreset") ?? "") ?? .nessuno
-        postMVPExtensions = UserDefaults.standard.object(forKey: "postMVPExtensions") as? Bool ?? true
+        postMVPExtensions = UserDefaults.standard.object(forKey: "postMVPExtensions") as? Bool ?? false
         diagnostics = UserDefaults.standard.stringArray(forKey: "diagnostics") ?? []
+        showDistance = UserDefaults.standard.bool(forKey: "showDistance")
         route = profile == nil ? .welcome : .browser
         #if DEBUG
         // Argomenti di avvio per le prove nel simulatore.
@@ -65,6 +77,7 @@ final class AppModel {
             fieldPreset = p; route = .browser
         }
         if args.contains("-welcome") { route = .welcome }
+        if args.contains("-showDistance") { showDistance = true }
         #endif
     }
 
@@ -82,17 +95,19 @@ final class AppModel {
         route = .test
     }
 
-    func finishTest(with newProfile: VisualProfile, diagnostics: [String] = []) {
+    func finishTest(with newProfile: VisualProfile, diagnostics: [String] = [], reading: ReadingMeasurement? = nil) {
         self.diagnostics = diagnostics
         var p = newProfile
         // Conservo le correzioni manuali della persona.
         if let old = profile { p.userAdjustments = old.userAdjustments }
         profile = p
+        readingMeasurement = reading
         route = .results
     }
 
     func resetAll() {
         profile = nil
+        readingMeasurement = nil
         fieldPreset = .nessuno
         route = .welcome
     }
@@ -137,6 +152,25 @@ enum ProfileStore {
     }
 }
 
+/// Test di lettura (post-MVP): persistenza separata, fuori dal `VisualProfile` del contratto.
+enum ReadingStore {
+    private static var url: URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("reading-measurement.json")
+    }
+
+    static func save(_ measurement: ReadingMeasurement?) {
+        guard let measurement else { try? FileManager.default.removeItem(at: url); return }
+        if let data = try? JSONEncoder().encode(measurement) { try? data.write(to: url, options: .atomic) }
+    }
+
+    static func load() -> ReadingMeasurement? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(ReadingMeasurement.self, from: data)
+    }
+}
+
 // MARK: - Aspetto dell'app che si adatta al profilo
 
 /// Senza profilo l'app parte leggibile: testo grande, contrasto alto.
@@ -165,7 +199,18 @@ struct AppAppearance: Equatable {
     var background: Color { scheme == .dark ? (highContrast ? .black : Color(white: 0.07)) : (highContrast ? .white : Color(red: 1, green: 0.985, blue: 0.95)) }
     var foreground: Color { scheme == .dark ? Color(red: 0.91, green: 0.9, blue: 0.89) : (highContrast ? .black : Color(white: 0.1)) }
     var secondary: Color { scheme == .dark ? Color(white: 0.75) : Color(white: 0.28) }
-    var accent: Color { scheme == .dark ? Color(red: 1, green: 0.84, blue: 0.04) : Color(red: 0, green: 0.25, blue: 0.75) }
+    /// Accento #FF8A4C, sempre con testo #141414 sopra (7,9:1).
+    var accent: Color { .ipoAccent }
+    var onAccent: Color { .ipoOnAccent }
+    /// Fondo delle schede: leggermente staccato dal fondo della pagina iniziale.
+    var card: Color { scheme == .dark ? Color(white: 0.12) : .white }
+    var startBackground: Color { scheme == .dark ? background : Color(white: 0.955) }
+    var hairline: Color { foreground.opacity(scheme == .dark ? 0.22 : 0.16) }
+}
+
+extension Color {
+    static let ipoAccent = Color(red: 1, green: 0x8A / 255, blue: 0x4C / 255)
+    static let ipoOnAccent = Color(red: 0x14 / 255, green: 0x14 / 255, blue: 0x14 / 255)
 }
 
 extension Font {

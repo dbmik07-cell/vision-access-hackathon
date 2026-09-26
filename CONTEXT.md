@@ -20,7 +20,7 @@ Contratto MVP approvato e file condivisi pronti in `shared/`. Prossimo passo: im
 ## Da definire
 
 - Approvazione di Rocco del congelamento delle tracce QUEST+ (#14) e verifica passo per passo in Swift/Xcode.
-- Bianco caldo del tema chiaro (Rocco); verifica di `nativeScale` con lo Zoom schermo (Rocco).
+- Bianco caldo del tema chiaro (Rocco); verifica di `nativeScale` con lo Zoom schermo attivo (Rocco: senza Zoom l'iPhone 15 stampa 3,0; con lo Zoom da provare sul telefono).
 - Protocolli e modelli dei test post-MVP (lettura, campo visivo, Amsler, luce, affidabilita avanzata).
 - Backend: workspace Python, caricatore del contratto, validazione degli schemi e harness dei casi golden pronti (`cd backend; python -m pytest`, #6). I casi golden senza implementazione risultano `skipped` con il motivo; geometria (#7), derivazioni del profilo (#8) e piano senza blocchi opzionali (#9: R0, R1, R3, R5-R8, con i valori di base di R2 e R4) implementati; blocchi preset (#10), motore QUEST+ e runner delle tracce (#11) implementati; goldens `geometry/`, `summary/`, `rules/` e `quest/tiny-hand-computed` verdi. Blocco di acuita misurato e modalita di generazione (#12, `python -m quest.generate`, output in `backend/quest/output/`, non in `shared/`): il candidato `acuity-reaches-sd` supera i controlli del README; `acuity-max-trials` si fermava a n = 18 per la regola SD, inversioni riviste in #14. Blocco di contrasto misurato (#13): logCS = -t solo alla scrittura del profilo; il candidato `contrast-reaches-sd` supera i controlli (logCS 1.5236, `ci95` scambiato, n = 16, non censurato, `doubtful` per larghezza 0.319). Tracce `acuity-reaches-sd`, `acuity-max-trials`, `contrast-reaches-sd` congelate `final` (#14) e verificate passo per passo dalla suite Python.
 
