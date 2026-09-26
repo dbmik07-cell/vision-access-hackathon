@@ -12,4 +12,5 @@ py -3.12 -m venv .venv          # qualsiasi Python >= 3.12
 - `contract/`: unico lettore di `shared/` (parametri, dispositivi, schemi) e confronto con le tolleranze della sezione 4.
 - `tests/test_golden.py`: scopre ogni caso in `shared/examples/{rules,summary,geometry,quest}/`; i casi il cui punto di ingresso non esiste ancora risultano `skipped` con il motivo.
 - `acuity/`: blocco di acuita misurato del profilo da un risultato QUEST+ (limite dello schermo e censura).
-- `python -m quest.generate`: modalita di generazione; solo se `tiny-hand-computed` passa, scrive i candidati delle tracce di acuita `pending` in `quest/output/` (ignorato da git, mai in `shared/`) con l'esito dei controlli di plausibilita del README; esce con 1 se un controllo fallisce.
+- `contrast/`: blocco di contrasto misurato; converte in logCS (`-t`, estremi di `ci95` scambiati) solo qui, con tetto, censura, fascia e flag `contrastLetterSizeCapped`.
+- `python -m quest.generate`: modalita di generazione; solo se `tiny-hand-computed` passa, scrive i candidati delle tracce QUEST+ `pending` (con il blocco del profilo) in `quest/output/` (ignorato da git, mai in `shared/`) con l'esito dei controlli di plausibilita del README; esce con 1 se un controllo fallisce.

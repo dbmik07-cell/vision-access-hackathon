@@ -6,11 +6,11 @@ Progetto hackathon dedicato all'accessibilita: app nativa iOS che funziona local
 
 - `ios/`: Rocco, SwiftUI/Xcode, implementazione Swift e JavaScript per adattare le pagine dentro WKWebView.
 - `backend/`: Michele, solo Python; riferimenti statistici, simulazioni e test.
-  - `acuity/`, `contrast/`, `reading/`, `visual_field/`, `light/`, `adaptation/`, `simulation/`, `tests/`.
+  - `contract/`, `geometry/`, `quest/`, `acuity/`, `contrast/`, `adaptation/`, `tests/`; `reading/`, `visual_field/`, `light/` e `simulation/` sono ancora vuote.
   - Il crowding rientra nella lettura, senza modulo autonomo.
 - `shared/`: schemi rigidi `visual-profile.schema.json` e `adaptation-plan.schema.json`, parametri concordati in `parameters.json`, tabella dei dispositivi `devices.json` e casi golden in `examples/`.
-- `docs/`: `data-contracts.md` (contratto MVP normativo), `spec/` (specifica originale), `research/` (verifica statistica delle fonti), `adr/` (decisioni architetturali).
-- `tests/`: cartella esistente preservata; i test Python dei modelli andranno in `backend/tests/`.
+- `docs/`: `data-contracts.md` (contratto MVP normativo), `spec/` (specifica originale), `research/` (verifica statistica delle fonti), `adr/` (decisioni architetturali), `agents/` (configurazione degli agenti: tracker, etichette, documenti di dominio).
+- `tests/`: cartella esistente preservata; i test Python dei modelli sono in `backend/tests/`.
 - `CLAUDE.md`: regole operative e confini di responsabilita.
 - `CONTEXT.md`: stato operativo condiviso e glossario del dominio.
 
@@ -18,13 +18,16 @@ Non sono previsti server runtime, FastAPI, database, API Anthropic, RAG, databas
 
 ## Stato e prossima fase
 
-Il contratto MVP (distanza, acuita, contrasto, `VisualProfile` -> `AdaptationPlan` -> browser adattato) e definito e approvato in [docs/data-contracts.md](docs/data-contracts.md), con schemi, parametri e casi golden tier 1+2 in `shared/`. Non ci sono ancora codice applicativo, progetto Xcode o test eseguibili. I file `.gitkeep` mantengono in Git le cartelle vuote.
+Il contratto MVP (distanza, acuita, contrasto, `VisualProfile` -> `AdaptationPlan` -> browser adattato) e definito e approvato in [docs/data-contracts.md](docs/data-contracts.md), con schemi, parametri e casi golden tier 1+2 in `shared/`. I file `.gitkeep` mantengono in Git le cartelle vuote.
 
-Prossima fase: implementazione di riferimento Python in `backend/` e app Swift in `ios/`, in parallelo dagli stessi casi golden. Il confronto usa tracce scriptate (non seed condivisi) e le tolleranze di `shared/parameters.json`, mai l'uguaglianza esatta dei float.
+- `backend/`: implementazione di riferimento Python, non un backend di runtime dell'app (geometria, derivazioni del profilo, regole R0-R8, motore QUEST+ e runner delle tracce, blocchi di acuita e contrasto misurati), verificata sui casi golden con `cd backend; python -m pytest` (istruzioni in [backend/README.md](backend/README.md)).
+- `ios/`: app SwiftUI `ios/hackaton.xcodeproj` con test in `ios/hackatonTests/` (`xcodebuild test`), che leggono gli stessi casi golden.
+
+Il confronto tra Python e Swift usa tracce scriptate (non seed condivisi) e le tolleranze di `shared/parameters.json`, mai l'uguaglianza esatta dei float. Tutte le tracce QUEST+ in `shared/examples/quest/`, comprese `acuity-reaches-sd`, `acuity-max-trials` e `contrast-reaches-sd`, sono congelate (`final`) e la suite Python le verifica passo per passo. La validazione completa della parita Swift/Xcode su queste tracce e ancora da fare (issue #14 aperta). Prossima fase: quella validazione su Mac, poi le simulazioni Python.
 
 ## Collaborazione
 
-Ogni persona lavora su un branch dedicato a una sola attivita, con integrazione su `main` tramite pull request. Finche il tracker non e disponibile, fa riferimento l'attivita concordata tra i collaboratori.
+Ogni persona lavora su un branch dedicato a una sola attivita, con integrazione su `main` tramite pull request. Le attivita sono tracciate nelle GitHub Issues del repository (`docs/agents/issue-tracker.md`).
 
 Concordare le modifiche condivise in [docs/data-contracts.md](docs/data-contracts.md), mantenendo coerenti schemi, esempi, [CLAUDE.md](CLAUDE.md) e [CONTEXT.md](CONTEXT.md).
 

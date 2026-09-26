@@ -79,7 +79,7 @@ Fonti di `beta`: acuita 15/24/35 coprono Carkeet 2001 (beta ~ 24 occhi corretti,
 
 **Aggiornamento.** Dopo ogni risposta `r`: `posterior(t, beta) ∝ posterior(t, beta) * P(r | x, t, beta)`, poi normalizzazione a somma 1.
 
-**Scelta dello stimolo.** Per ogni stimolo ammissibile `x`: probabilita di ciascun esito `p(r | x) = Σ posterior * P(r | x, ·)`; entropia del posterior aggiornato `H_r = -Σ p' ln p'` (logaritmo naturale); entropia attesa `E[H] = Σ_r p(r | x) H_r`. Si sceglie il minimo. **Spareggio:** gli stimoli con `E[H]` entro `1e-12` dal minimo sono pari; vince quello con indice piu basso nella lista degli ammissibili.
+**Scelta dello stimolo.** Per ogni stimolo ammissibile `x`: probabilita di ciascun esito `p(r | x) = Σ posterior * P(r | x, ·)`; entropia del posterior aggiornato `H_r = -Σ p' ln p'` (logaritmo naturale, con `0 * ln 0 = 0`); entropia attesa `E[H] = Σ_r p(r | x) H_r`. Si sceglie il minimo. **Spareggio:** gli stimoli con `E[H]` entro `1e-12` dal minimo sono pari; vince quello con indice piu basso nella lista degli ammissibili.
 
 **Riassunti della soglia** (sulla marginale `p_i = Σ_beta posterior(t_i, beta)`):
 
@@ -235,7 +235,7 @@ Le tracce QUEST+ usano un osservatore senza casualita: `scripted` (risposte fiss
 **Tier 1:**
 
 - `rules/`: `mild-acuity`, `doubtful-acuity` (esattamente +0.1 logMAR rispetto al precedente), `low-contrast` (fascia 1.0-1.5), `tunnel-vision` (preset con raggio 5°, `maxLineWidthCh` limitato a 15), `central-loss` (preset Amsler con `centralInvolved`), `low-contrast-photophobia` (preset luce, tema scuro e R3).
-- `quest/`: `tiny-hand-computed` (un passo del motore su una griglia minima, interamente calcolato a mano: stato `final`); `acuity-reaches-sd`, `acuity-max-trials`, `contrast-reaches-sd` (quest'ultimo deve convergere a un logCS plausibile, non allo speculare, per intercettare un segno invertito). Le tre tracce complete hanno output **`pending`**: li genera l'implementazione di riferimento dopo aver superato `tiny-hand-computed` e i controlli di plausibilita del README, poi si congelano con `status: final` in una PR condivisa.
+- `quest/`: `tiny-hand-computed` (un passo del motore su una griglia minima, interamente calcolato a mano: stato `final`); `acuity-reaches-sd`, `acuity-max-trials`, `contrast-reaches-sd` (quest'ultimo deve convergere a un logCS plausibile, non allo speculare, per intercettare un segno invertito). Le tre tracce complete sono state generate dall'implementazione di riferimento dopo aver superato `tiny-hand-computed` e i controlli di plausibilita del README, e congelate con `status: final` in una PR condivisa (issue #14). Gli output delle tracce sono nello spazio del motore; campi, `endedBy` e significato di `stimulusIndex` sono in `shared/examples/README.md`.
 
 **Tier 2 (parte dell'MVP):**
 
