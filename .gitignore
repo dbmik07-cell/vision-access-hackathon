@@ -56,3 +56,15 @@ Thumbs.db
 *.swo
 *.log
 ~$*
+
+# Xcode / Swift: keep shared projects, schemes and Package.resolved tracked
+DerivedData/
+.build/
+.swiftpm/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.ipa
+*.dSYM/
+*.dSYM.zip

@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "adaptation-plan",
+  "$comment": "Placeholder only; accepts any JSON value. Fields and constraints must be agreed during /grill-with-docs before application validation."
+}

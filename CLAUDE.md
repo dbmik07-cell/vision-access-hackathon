@@ -1,8 +1,17 @@
 # Regole per Claude Code
 
-## Ambito
+## Ambito e responsabilita
 
-Progetto hackathon sviluppato da due persone, con frontend web e backend Python separati. L'architettura, i framework e i comandi di sviluppo saranno definiti con `/grill-with-docs`: non considerarli gia decisi.
+Applicazione nativa iOS che deve funzionare localmente sull'iPhone. Questa fase prepara soltanto la struttura: MVP, test, modelli statistici e regole di adattamento saranno definiti successivamente con `/grill-with-docs`.
+
+- `ios/`: Rocco, app nativa SwiftUI/Xcode e implementazione Swift. Rocco possiede anche il JavaScript per l'adattamento delle pagine dentro WKWebView.
+- `backend/`: Michele, esclusivamente Python per implementazioni statistiche di riferimento, simulazioni e test. E un workspace Python, non un server runtime dell'app.
+- `shared/`: specifica JSON e casi di test golden condivisi, da concordare tra entrambi prima dell'implementazione.
+- `docs/`: decisioni e specifiche condivise; `docs/data-contracts.md` rimane il punto di riferimento per il contratto dati locale, senza endpoint HTTP.
+- `tests/`: cartella esistente mantenuta; i test Python dei modelli appartengono a `backend/tests/`.
+- Non introdurre server runtime, FastAPI, database, API Anthropic, RAG, database vettoriali o dipendenze di rete.
+- Il crowding e coperto dal test di lettura in `backend/reading/`; non creare un modulo o test autonomo `crowding/`.
+- Non implementare funzionalita applicative o inventare modelli statistici in questa fase.
 
 ## Collaborazione e Git
 
@@ -11,16 +20,29 @@ Progetto hackathon sviluppato da due persone, con frontend web e backend Python 
 - Se il tracker non e ancora disponibile, usa come riferimento l'attivita concordata con l'utente; non inventare numeri di ticket.
 - Limita le modifiche ai file necessari per l'attivita. Evita refactoring, formattazioni globali e modifiche a moduli non correlati.
 - Nella pull request descrivi cosa cambia e quali verifiche hai eseguito. Non effettuare merge con test falliti.
+- Michele lavora solo in `backend/` e Rocco solo in `ios/`; nessuno modifica l'area dell'altro salvo richiesta esplicita. Le modifiche a `shared/` coinvolgono entrambi e devono preservare la compatibilita.
+- Mantieni `CONTEXT.md` aggiornato con stato operativo e decisioni concordate, senza anticipare l'architettura dettagliata.
 
-## Contratti tra frontend e backend
+## Specifica condivisa e confronti numerici
 
-- Prima di implementare una comunicazione tra frontend e backend, definisci il relativo contratto in `docs/api-contract.md`: metodo e percorso, dati JSON di richiesta e risposta, campi obbligatori e risposte di errore.
-- Frontend, backend ed eventuali mock devono rispettare lo stesso contratto.
-- Se una modifica cambia un contratto esistente, coordinala con chi lavora sull'altra parte e aggiorna documento e implementazioni coinvolte. Non introdurre incompatibilita silenziose.
+- Python e Swift devono seguire la stessa specifica condivisa e gli stessi casi golden in `shared/examples/`.
+- Prima di implementare, concorda e documenta il contratto in `docs/data-contracts.md` e negli schemi in `shared/`.
+- Gli schemi attuali sono soltanto segnaposto permissivi: non costituiscono validazione dei dati applicativi. Non inventare campi, unita, soglie o valori golden.
+- Per simulazioni e confronti Python/Swift usa seed deterministici dove necessario. Concorda anche generatore e fixture: lo stesso seed da solo non garantisce sequenze uguali tra linguaggi.
+- Confronta i risultati numerici con tolleranze esplicite concordate per il modello, mai con uguaglianza esatta dei float. Le tolleranze saranno definite con la specifica.
+- Coordina ogni variazione del contratto con entrambi gli sviluppatori; aggiorna specifica, casi golden e implementazioni interessate senza incompatibilita silenziose.
 
 ## Qualita e semplicita
 
 - Preferisci la soluzione piu semplice che soddisfa il ticket e mantieni le dipendenze al minimo.
 - Dopo modifiche significative, esegui i test pertinenti e gli eventuali controlli gia configurati. Aggiungi o aggiorna test quando cambia il comportamento applicativo.
 - Se test o comandi non esistono ancora, oppure non puoi eseguirli, dichiaralo: non riportarli come superati.
-- Non inserire password, token o file `.env` nei commit. Documenta le variabili necessarie in un `.env.example` senza valori segreti.
+- Non inserire password, token o file `.env` nei commit. Documenta le eventuali variabili necessarie in un `.env.example` senza valori segreti.
+
+## Confini finali di ownership
+
+- `backend/` appartiene esclusivamente a Michele su Windows: solo Python per implementazioni statistiche di riferimento, modelli di acuita, contrasto, lettura, campo visivo e luce, regole di adattamento, simulazioni, validazione e test automatici. E un workspace di riferimento e validazione, non un server runtime.
+- `ios/` appartiene a Rocco su Mac: Swift, SwiftUI, Xcode, test iOS, logica della distanza dal dispositivo, WKWebView e JavaScript di adattamento delle pagine.
+- Michele lavora solo in `backend/`; Rocco lavora solo in `ios/`. Nessuno modifica l'area dell'altro salvo richiesta esplicita.
+- `shared/` e il contratto comune: le modifiche agli schemi JSON e ai casi golden coinvolgono entrambi e devono preservare la compatibilita.
+- Non aggiungere FastAPI, database, API Anthropic, RAG, database vettoriali o dipendenze di rete. L'app finale funziona localmente sull'iPhone.
